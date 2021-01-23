@@ -23,5 +23,8 @@ void Value_Print(Value* TargetValue) {
             String_Print(TargetValue->StringValue);
             putchar('"');
             break;
+        case VALUE_INTEGER:
+            printf("%lli", TargetValue->IntegerValue);
+            break;
     }
 }

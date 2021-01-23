@@ -3,7 +3,7 @@
 #include <ctype.h>
 
 char IsSpecial(char Check) {
-    char* Special = "(){}[]'`^@~\" \t";
+    char* Special = "(){}[]'`^@~\" \t\n";
 
     for (int Index = 0; Index < strlen(Special); ++Index) {
         if (Check == Special[Index]) {
@@ -50,11 +50,13 @@ void Token_Print(Token *this) {
     }
 }
 
-Tokenizer *Tokenizer_New(char *Source, int SourceLength) {
-    Tokenizer *this = malloc(sizeof(Tokenizer));
+Tokenizer *Tokenizer_New(char* SourceFilePath, char *Source, int SourceLength) {
+    Tokenizer *this = alloc(sizeof(Tokenizer));
 
+    this->SourceFilePath = SourceFilePath;
     this->Source = Source;
     this->SourceLength = SourceLength;
+    this->LineNumber = 1;
 
     this->TokenCapacity = 8;
     this->Tokens = calloc(sizeof(Token *), this->TokenCapacity);
@@ -62,23 +64,29 @@ Tokenizer *Tokenizer_New(char *Source, int SourceLength) {
     return this;
 }
 
-Token *Tokenizer_AppendToken(Tokenizer *this, TokenType Type, void *Value) {
+Token *Tokenizer_AppendToken(Tokenizer *this, int Position, int Length, TokenType Type, void *Value) {
     if (this->MaxTokenIndex + 1 >= this->TokenCapacity) {
         this->TokenCapacity += 300;
         this->Tokens = realloc(this->Tokens, this->TokenCapacity * sizeof(Token *));
     }
 
-    Token *NewToken = malloc(sizeof(Token));
+    Token *NewToken = alloc(sizeof(Token));
 
     NewToken->Type = Type;
     NewToken->AnyValue = Value;
+
+    NewToken->Context.Length = Length;
+    NewToken->Context.Position = Position;
+    NewToken->Context.LineNumber = this->LineNumber;
+    NewToken->Context.Source = this->Source;
+    NewToken->Context.SourceFilePath = this->SourceFilePath;
 
     this->Tokens[this->MaxTokenIndex++] = NewToken;
 
     return NewToken;
 }
-Token *Tokenizer_AppendToken_Int(Tokenizer* this, TokenType Type, int Value) {
-    return Tokenizer_AppendToken(this, Type, (void*)Value);
+Token *Tokenizer_AppendToken_Int(Tokenizer* this, int Position, int Length, TokenType Type, int Value) {
+    return Tokenizer_AppendToken(this, Position, Length, Type, (void*)Value);
 }
 
 char Tokenizer_AtEnd(Tokenizer *this) {
@@ -90,7 +98,13 @@ char Tokenizer_PeekNextCharacter(Tokenizer *this) {
 }
 
 char Tokenizer_GetNextCharacter(Tokenizer *this) {
-    return this->Source[this->SourceIndex++];
+    char Result = this->Source[this->SourceIndex++];
+
+    if (Result == 0xA) {
+        this->LineNumber++;
+    }
+
+    return Result;
 }
 
 Token *Tokenizer_GetNextToken(Tokenizer *this) {
@@ -101,17 +115,29 @@ Token *Tokenizer_GetNextToken(Tokenizer *this) {
     this->TokenIndex++;
 
     while (1) {
+        int TokenStartPosition = this->SourceIndex;
+
         if (Tokenizer_AtEnd(this)) {
-            return Tokenizer_AppendToken(this, END, NULL);
+            return Tokenizer_AppendToken(this, TokenStartPosition, 1, END, NULL);
         }
 
         char FirstCharacter = Tokenizer_GetNextCharacter(this);
 
-        if (isblank(FirstCharacter) || FirstCharacter == ',') {
+        if (isspace(FirstCharacter) || FirstCharacter == ',') {
             continue;
         }
 
-#define CharacterToken(Character, Type, Value) case Character: return Tokenizer_AppendToken_Int(this, Type, Value)
+        if (FirstCharacter == ';') {
+            int CurrentLine = this->LineNumber;
+
+            while (this->LineNumber = CurrentLine && !Tokenizer_AtEnd(this)) {
+                Tokenizer_GetNextToken(this);
+            };
+
+            continue;
+        }
+
+#define CharacterToken(Character, Type, Value) case Character: return Tokenizer_AppendToken_Int(this, TokenStartPosition, 1, Type, Value)
 
         switch (FirstCharacter) {
             CharacterToken('(', PUNCTUATION, OPEN_PAREN);
@@ -126,14 +152,10 @@ Token *Tokenizer_GetNextToken(Tokenizer *this) {
             CharacterToken('@', PUNCTUATION, AT);
             case '~':
                 if (Tokenizer_PeekNextCharacter(this) == '@') {
-                    return Tokenizer_AppendToken_Int(this, PUNCTUATION, TILDE_AT);
+                    return Tokenizer_AppendToken_Int(this, TokenStartPosition, 2, PUNCTUATION, TILDE_AT);
                 }
 
-                return Tokenizer_AppendToken_Int(this, PUNCTUATION, TILDE);
-            case '+':
-                return Tokenizer_AppendToken_Int(this, OPERATOR, PLUS);
-            case '-':
-                return Tokenizer_AppendToken_Int(this, OPERATOR, MINUS);
+                return Tokenizer_AppendToken_Int(this, TokenStartPosition, 1, PUNCTUATION, TILDE);
         }
 
         if (FirstCharacter == '"') {
@@ -171,7 +193,7 @@ Token *Tokenizer_GetNextToken(Tokenizer *this) {
 
             String *StringText = String_New(StringCopy, StringLength);
 
-            return Tokenizer_AppendToken(this, STRING, StringText);
+            return Tokenizer_AppendToken(this, TokenStartPosition, UnescapedLength + 1, STRING, StringText);
         }
         else if (!IsSpecial(FirstCharacter)) {
             int IdentifierStart = this->SourceIndex - 1;
@@ -184,9 +206,11 @@ Token *Tokenizer_GetNextToken(Tokenizer *this) {
                 this->SourceIndex--;
             }
 
-            String *IdentifierText = String_New(&this->Source[IdentifierStart], this->SourceIndex - IdentifierStart);
+            int IdentifierLength = this->SourceIndex - IdentifierStart;
 
-            return Tokenizer_AppendToken(this, IDENTIFIER, IdentifierText);
+            String *IdentifierText = String_New(&this->Source[IdentifierStart], IdentifierLength);
+
+            return Tokenizer_AppendToken(this, IdentifierStart, IdentifierLength, IDENTIFIER, IdentifierText);
         }
     }
 }

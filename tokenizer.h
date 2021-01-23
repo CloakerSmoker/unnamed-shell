@@ -35,6 +35,7 @@ typedef enum {
 } Punctuation;
 
 typedef struct {
+    ErrorContext Context;
     TokenType Type;
 
     union {
@@ -48,9 +49,12 @@ typedef struct {
 } Token;
 
 typedef struct {
+    char* SourceFilePath;
+
     char* Source;
     int SourceIndex;
     int SourceLength;
+    int LineNumber;
 
     Token** Tokens;
     int TokenCapacity;
@@ -61,10 +65,10 @@ typedef struct {
 char IsSpecial(char);
 void Token_Print(Token*);
 
-Tokenizer* Tokenizer_New(char*, int);
-Token* Tokenizer_AppendToken(Tokenizer*, TokenType, void*);
+Tokenizer* Tokenizer_New(char*, char*, int);
+Token* Tokenizer_AppendToken(Tokenizer*, int, int, TokenType, void*);
 char Tokenizer_AtEnd(Tokenizer*);
-char Tokenizer_PeekNextToken(Tokenizer*);
+char Tokenizer_PeekNextCharacter(Tokenizer*);
 char Tokenizer_GetNextCharacter(Tokenizer*);
 Token* Tokenizer_GetNextToken(Tokenizer*);
 Token* Tokenizer_Next(Tokenizer*);

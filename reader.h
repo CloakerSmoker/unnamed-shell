@@ -3,22 +3,27 @@
 
 #include "common.h"
 #include "tokenizer.h"
+#include <string.h>
+#include <ctype.h>
 
 typedef enum {
     VALUE_LIST,
     VALUE_INTEGER,
     VALUE_STRING,
-    VALUE_IDENTIFIER
+    VALUE_IDENTIFIER,
+    VALUE_FUNCTION,
+    VALUE_ANY
 } ValueType;
 
-struct Value;
+struct TagValue;
 
 typedef struct {
     int Length;
-    struct Value** Values;
+    struct TagValue** Values;
 } List;
 
-typedef struct Value {
+typedef struct TagValue {
+    ErrorContext Context;
     ValueType Type;
 
     union {
@@ -26,6 +31,7 @@ typedef struct Value {
         int64_t IntegerValue;
         String* StringValue;
         String* IdentifierValue;
+        struct TagValue* (*FunctionValue)(struct TagValue*);
     };
 } Value;
 
