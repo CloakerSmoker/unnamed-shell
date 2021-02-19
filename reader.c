@@ -22,7 +22,7 @@ Value* ReadList(Tokenizer* this) {
 
     if (FirstToken->Type != PUNCTUATION || FirstToken->OperatorValue != OPEN_PAREN) {
         Error(FirstToken, "Expected opening '(' for list");
-        exit(1);
+        longjmp(OnError, 0);
     }
 
     List* Result = malloc(sizeof(List));
@@ -40,7 +40,7 @@ Value* ReadList(Tokenizer* this) {
         if (NextToken->Type == END) {
             Error(FirstToken, "Unclosed list opened here:");
             Error(LastForm, "Last valid entry:");
-            exit(1);
+            longjmp(OnError, 0);
         }
     }
 
@@ -82,9 +82,26 @@ Value* ReadAtom(Tokenizer* this) {
             Result->IntegerValue = strtoll(TokenToConvert->IdentifierValue->Buffer, NULL, 10);
         }
         else {
-            Result->Type = VALUE_IDENTIFIER;
-            Result->IdentifierValue = TokenToConvert->IdentifierValue;
+            if (!strncmp(TokenToConvert->IdentifierValue->Buffer, "true", TokenToConvert->IdentifierValue->Length)) {
+                Result->Type = VALUE_BOOL;
+                Result->BoolValue = 1;
+            }
+            else if (!strncmp(TokenToConvert->IdentifierValue->Buffer, "false", TokenToConvert->IdentifierValue->Length)) {
+                Result->Type = VALUE_BOOL;
+                Result->BoolValue = 0;
+            }
+            else if (!strncmp(TokenToConvert->IdentifierValue->Buffer, "nil", TokenToConvert->IdentifierValue->Length)) {
+                Result->Type = VALUE_NIL;
+            }
+            else {
+                Result->Type = VALUE_IDENTIFIER;
+                Result->IdentifierValue = TokenToConvert->IdentifierValue;
+            }
         }
+    }
+    else {
+        Error(TokenToConvert, "Unexpected token in atom");
+        longjmp(OnError, 0);
     }
 
     return Result;

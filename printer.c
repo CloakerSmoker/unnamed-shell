@@ -26,5 +26,19 @@ void Value_Print(Value* TargetValue) {
         case VALUE_INTEGER:
             printf("%lli", TargetValue->IntegerValue);
             break;
+        case VALUE_FUNCTION:
+            printf("<function>");
+            break;
+        case VALUE_BOOL:
+            if (TargetValue->BoolValue) {
+                printf("true");
+            }
+            else {
+                printf("false");
+            }
+            break;
+        case VALUE_NIL:
+            printf("nil");
+            break;
     }
 }

@@ -3,7 +3,7 @@
 #include <ctype.h>
 
 char IsSpecial(char Check) {
-    char* Special = "(){}[]'`^@~\" \t\n";
+    char* Special = "(){}[]'`^@~\" \t\n\r";
 
     for (int Index = 0; Index < strlen(Special); ++Index) {
         if (Check == Special[Index]) {
@@ -62,6 +62,21 @@ Tokenizer *Tokenizer_New(char* SourceFilePath, char *Source, int SourceLength) {
     this->Tokens = calloc(sizeof(Token *), this->TokenCapacity);
 
     return this;
+}
+
+void Tokenizer_Reset(Tokenizer* this, char* Source, int SourceLength) {
+    this->Source = Source;
+    this->SourceLength = SourceLength;
+    this->LineNumber = 1;
+
+    for (int Index = 0; Index < this->MaxTokenIndex; Index++) {
+        free(this->Tokens[Index]);
+
+        this->Tokens[Index] = NULL;
+    }
+
+    this->TokenIndex = 0;
+    this->MaxTokenIndex = 0;
 }
 
 Token *Tokenizer_AppendToken(Tokenizer *this, int Position, int Length, TokenType Type, void *Value) {
@@ -168,13 +183,17 @@ Token *Tokenizer_GetNextToken(Tokenizer *this) {
                 FirstCharacter = Tokenizer_GetNextCharacter(this);
 
                 if (FirstCharacter == '\\' && Tokenizer_PeekNextCharacter(this) == '"') {
-                    Tokenizer_GetNextCharacter(this);
+                    if (Tokenizer_GetNextCharacter(this) == 'n') {
+                        StringLength++;
+                    }
                 }
 
                 StringLength++;
             }
 
-            char *StringCopy = calloc(1, StringLength);
+            StringLength -= 1;
+
+            char *StringCopy = calloc(1, StringLength + 1);
             int UnescapedLength = this->SourceIndex - StringStart - 1;
 
             int EscapeIndex = 0;
@@ -183,7 +202,12 @@ Token *Tokenizer_GetNextToken(Tokenizer *this) {
                 char EscapeCharacter = this->Source[StringStart + CopyIndex];
 
                 if (EscapeCharacter == '\\') {
-                    StringCopy[EscapeIndex] = this->Source[StringStart + ++CopyIndex];
+                    char EscapedCharacter = StringCopy[EscapeIndex] = this->Source[StringStart + ++CopyIndex];
+
+                    if (EscapedCharacter == 'n') {
+                        StringCopy[EscapeIndex++] = 13;
+                        StringCopy[EscapeIndex] = 10;
+                    }
                 } else {
                     StringCopy[EscapeIndex] = EscapeCharacter;
                 }
@@ -193,7 +217,7 @@ Token *Tokenizer_GetNextToken(Tokenizer *this) {
 
             String *StringText = String_New(StringCopy, StringLength);
 
-            return Tokenizer_AppendToken(this, TokenStartPosition, UnescapedLength + 1, STRING, StringText);
+            return Tokenizer_AppendToken(this, TokenStartPosition, UnescapedLength + 2, STRING, StringText);
         }
         else if (!IsSpecial(FirstCharacter)) {
             int IdentifierStart = this->SourceIndex - 1;

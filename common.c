@@ -1,6 +1,8 @@
 #include "common.h"
 #include <stdlib.h>
 
+jmp_buf OnError;
+
 String* String_New(char* Text, int Length) {
     String* this = malloc(sizeof(String));
 
@@ -42,6 +44,7 @@ char* FindStartOfLine(char* Start, int Offset) {
     for (int Index = 0; Index < Offset; Index++) {
         if (Start[Index] == 0xA || Start[Index] == 0xD) {
             LastLineStart = Index;
+            break;
         }
     }
 

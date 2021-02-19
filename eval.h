@@ -2,18 +2,15 @@
 #define MAL_EVAL_H
 
 #include <stdint.h>
+#include <dirent.h>
+#include <unistd.h>
+#include <stdio.h>
 #include "common.h"
 #include "reader.h"
-
-typedef enum {
-    SYMBOL_VALUE,
-    SYMBOL_FUNCTION
-} SymbolType;
+#include "printer.h"
 
 typedef struct TagSymbolEntry {
     int Hash;
-
-    SymbolType Type;
 
     union {
         Value* Value;
@@ -36,5 +33,6 @@ typedef struct TagEnvironment {
 
 Environment* Eval_Setup();
 Value* Eval_Apply(Environment*, Value*);
+Value* Eval_GetParameterRaw(Value*, ValueType, int);
 
 #endif //MAL_EVAL_H

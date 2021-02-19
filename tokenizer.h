@@ -66,6 +66,7 @@ char IsSpecial(char);
 void Token_Print(Token*);
 
 Tokenizer* Tokenizer_New(char*, char*, int);
+void Tokenizer_Reset(Tokenizer*, char*, int);
 Token* Tokenizer_AppendToken(Tokenizer*, int, int, TokenType, void*);
 char Tokenizer_AtEnd(Tokenizer*);
 char Tokenizer_PeekNextCharacter(Tokenizer*);

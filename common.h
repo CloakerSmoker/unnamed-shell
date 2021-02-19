@@ -5,6 +5,11 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <setjmp.h>
+
+extern jmp_buf OnError;
+
+#define EXTRA_ADDITIONS 1
 
 typedef struct {
     int Length;
@@ -42,7 +47,50 @@ void Context_Error(ErrorContext*, char*);
 ErrorContext* Context_Clone(ErrorContext*, ErrorContext*);
 ErrorContext* Context_Merge(ErrorContext*, ErrorContext*);
 
-
 #define alloc(Size) calloc(Size, 1)
+
+struct TagValue;
+struct TagEnvironment;
+
+typedef struct {
+    int Length;
+    struct TagValue** Values;
+} List;
+
+typedef struct {
+    union {
+        struct TagValue* ParameterBindings;
+        struct TagValue* (*NativeValue)(struct TagValue*);
+    };
+
+    struct TagValue* Body;
+    struct TagEnvironment* Environment;
+    char IsNativeFunction;
+} Function;
+
+typedef enum {
+    VALUE_LIST,
+    VALUE_INTEGER,
+    VALUE_STRING,
+    VALUE_IDENTIFIER,
+    VALUE_FUNCTION,
+    VALUE_NIL,
+    VALUE_BOOL,
+    VALUE_ANY
+} ValueType;
+
+typedef struct TagValue {
+    ErrorContext Context;
+    ValueType Type;
+
+    union {
+        List* ListValue;
+        int64_t IntegerValue;
+        String* StringValue;
+        String* IdentifierValue;
+        Function* FunctionValue;
+        char BoolValue;
+    };
+} Value;
 
 #endif //MAL_COMMON_H
