@@ -3,6 +3,14 @@
 
 jmp_buf OnError;
 
+int FileDescriptorSize(int FileDescriptor) {
+    struct stat FileStatus;
+
+    fstat(FileDescriptor, &FileStatus);
+
+    return (int)FileStatus.st_size;
+}
+
 String* String_New(char* Text, int Length) {
     String* this = malloc(sizeof(String));
 

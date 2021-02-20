@@ -3,10 +3,21 @@
 #include "reader.h"
 #include "printer.h"
 #include "eval.h"
+#include "io.h"
 
+// (list.filter (list.make 1 2 3) (fn* (Entry) (- Entry 1)))
 
 
 int main(int argc, char** argv) {
+
+    //ChildProcess* Bash = ChildProcess_New("/bin/echo.exe", argv);
+
+    //char* Data = ChildProcess_ReadStream(Bash, STDOUT_FILENO, NULL);
+
+    //printf("Child: %s |\n", Data);
+
+    //return 0;
+
     Environment* Env = Eval_Setup();
 
     // Better ls: (let* (Entries (list.map (ls) (fn* (Entry) (do (print Entry) (print "\n"))))) (list.length Entries))

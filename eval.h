@@ -8,6 +8,7 @@
 #include "common.h"
 #include "reader.h"
 #include "printer.h"
+#include "io.h"
 
 typedef struct TagSymbolEntry {
     int Hash;

@@ -6,10 +6,15 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <setjmp.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include "io.h"
 
 extern jmp_buf OnError;
 
 #define EXTRA_ADDITIONS 1
+
+int FileDescriptorSize(int);
 
 typedef struct {
     int Length;
@@ -76,6 +81,7 @@ typedef enum {
     VALUE_FUNCTION,
     VALUE_NIL,
     VALUE_BOOL,
+    VALUE_CHILD,
     VALUE_ANY
 } ValueType;
 
@@ -89,6 +95,7 @@ typedef struct TagValue {
         String* StringValue;
         String* IdentifierValue;
         Function* FunctionValue;
+        ChildProcess* ChildValue;
         char BoolValue;
     };
 } Value;

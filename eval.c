@@ -165,6 +165,7 @@ char* Eval_GetTypeName(ValueType Type) {
         case VALUE_LIST: return "list";
         case VALUE_BOOL: return "bool";
         case VALUE_NIL: return "nil";
+        case VALUE_CHILD: return "process";
         case VALUE_ANY: return "any";
         default: return "none";
     }
@@ -521,6 +522,32 @@ EVAL_FUNCTION Value* Eval_Equals(Value* Parameters) {
     return Result;
 }
 
+EVAL_FUNCTION Value* Eval_CreateProcess(Value* Parameters) {
+    String* Path = Eval_GetParameter(Parameters, VALUE_STRING, 0)->StringValue;
+
+    char* Arguments[2] = {Path->Buffer, 0};
+
+    Value* Result = alloc(sizeof(Value));
+    Result->Type = VALUE_CHILD;
+    Result->ChildValue = ChildProcess_New(Path->Buffer, Arguments);
+
+    return Result;
+}
+EVAL_FUNCTION Value* Eval_ReadProcessOutput(Value* Parameters) {
+    ChildProcess* Child = Eval_GetParameter(Parameters, VALUE_CHILD, 0)->ChildValue;
+
+    int OutputSize = 0;
+    char* Output = ChildProcess_ReadStream(Child, STDOUT_FILENO, &OutputSize);
+
+    String* OutputString = String_New(Output, OutputSize);
+
+    Value* Result = alloc(sizeof(Value));
+    Result->Type = VALUE_STRING;
+    Result->StringValue = OutputString;
+
+    return Result;
+}
+
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "bugprone-sizeof-expression"
 Environment* Eval_Setup() {
@@ -553,6 +580,8 @@ SymbolMap_Set(Symbols, #LispName, strlen(#LispName), FunctionValue);} while (0)
     AddSymbolFunction(StringLength, string.length);
     AddSymbolFunction(StringSplit, string.split);
     AddSymbolFunction(Equals, =);
+    AddSymbolFunction(CreateProcess, process.make);
+    AddSymbolFunction(ReadProcessOutput, process.read_output);
 
     Environment* Result = alloc(sizeof(Result));
 
