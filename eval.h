@@ -11,25 +11,25 @@
 #include "io.h"
 
 typedef struct TagSymbolEntry {
-    int Hash;
+	int Hash;
 
-    union {
-        Value* Value;
-        Value* (*Function)(Value*);
-        void* VoidValue;
-    };
+	union {
+		Value* Value;
+		Value* (*Function)(Value*);
+		void* VoidValue;
+	};
 
-    struct TagSymbolEntry* Next;
+	struct TagSymbolEntry* Next;
 } SymbolEntry;
 
 typedef struct {
-    SymbolEntry** Elements;
-    int ElementCapacity;
+	SymbolEntry** Elements;
+	int ElementCapacity;
 } SymbolMap;
 
 typedef struct TagEnvironment {
-    struct TagEnvironment* Outer;
-    SymbolMap* Symbols;
+	struct TagEnvironment* Outer;
+	SymbolMap* Symbols;
 } Environment;
 
 Environment* Eval_Setup();

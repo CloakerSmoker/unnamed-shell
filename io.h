@@ -8,28 +8,28 @@
 #include <errno.h>
 
 typedef struct TagStandardStream {
-    union {
-        int Pipe[2];
+	union {
+		int Pipe[2];
 
-        struct {
-            int Out;
-            int In;
-        };
-    };
+		struct {
+			int Out;
+			int In;
+		};
+	};
 } StandardStream;
 
 typedef struct TagChildProcess {
-    union {
-        StandardStream Streams[3];
+	union {
+		StandardStream Streams[3];
 
-        struct {
-            StandardStream StandardInput;
-            StandardStream StandardOutput;
-            StandardStream StandardError;
-        };
-    };
+		struct {
+			StandardStream StandardInput;
+			StandardStream StandardOutput;
+			StandardStream StandardError;
+		};
+	};
 
-    pid_t PID;
+	pid_t PID;
 } ChildProcess;
 
 ChildProcess* ChildProcess_New(char*, char**);
