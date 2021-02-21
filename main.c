@@ -3,7 +3,6 @@
 #include "reader.h"
 #include "printer.h"
 #include "eval.h"
-#include "io.h"
 
 // (list.filter (list.make 1 2 3) (fn* (Entry) (- Entry 1)))
 
@@ -16,7 +15,7 @@
  *
  */
 
-int main(int argc, char** argv) {
+int main(unused int argc, unused char** argv) {
 
 	//ChildProcess* Bash = ChildProcess_New("/bin/echo.exe", argv);
 
@@ -31,18 +30,19 @@ int main(int argc, char** argv) {
 	// Better ls: (let* (Entries (list.map (ls) (fn* (Entry) (do (print Entry) (print "\n"))))) (list.length Entries))
 
 #if EXTRA_ADDITIONS
-	//char* AutoLoad = "(do " \
+	char* AutoLoad = "(do " \
 					 " (def! not (fn* (Value) (if Value false true)))" \
+					 " (def! or (fn* (Left Right) (if Left true (if Right true false))))" \
 					 " (def! bool->int (fn* (Bool) (if Bool 1 0)))" \
 					 " (def! any->bool (fn* (Value) (if Value true false)))" \
 					 " (def! . \".\")" \
 					 " (def! .. \"..\")" \
 					 ")";
-	//Tokenizer* AutoLoadTokenizer = Tokenizer_New("AutoLoad", AutoLoad, strlen(AutoLoad));
+	Tokenizer* AutoLoadTokenizer = Tokenizer_New("AutoLoad", AutoLoad, strlen(AutoLoad));
 
-	//Value* AutoLoadTree = ReadForm(AutoLoadTokenizer);
+	Value* AutoLoadTree = ReadForm(AutoLoadTokenizer);
 
-	//Eval_Apply(Env, AutoLoadTree);
+	Eval_Apply(Env, AutoLoadTree);
 #endif
 
 	setjmp(OnError);
@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
 	while (1) {
 		printf(">");
 
-		int LineLength = getline(&Input, &Length, stdin);
+		size_t LineLength = getline(&Input, &Length, stdin);
 
 		if (LineLength == 1) {
 			break;

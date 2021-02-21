@@ -14,43 +14,7 @@ char IsSpecial(char Check) {
 	return 0;
 }
 
-void Token_Print(Token *this) {
-	switch (this->Type) {
-		case INTEGER:
-			printf("%l", this->IntegerValue);
-			break;
-		case STRING:
-			putchar('"');
-			String_Print(this->StringValue);
-			putchar('"');
-			break;
-		case IDENTIFIER:
-			String_Print(this->IdentifierValue);
-			break;
-		case PUNCTUATION:
-			switch (this->PunctuationValue) {
-				case OPEN_PAREN:
-					putchar('(');
-					break;
-				case CLOSE_PAREN:
-					putchar(')');
-					break;
-			}
-			break;
-		case OPERATOR:
-			switch (this->OperatorValue) {
-				case PLUS:
-					putchar('+');
-					break;
-				case MINUS:
-					putchar('-');
-					break;
-			}
-			break;
-	}
-}
-
-Tokenizer *Tokenizer_New(char* SourceFilePath, char *Source, int SourceLength) {
+Tokenizer *Tokenizer_New(char* SourceFilePath, char *Source, size_t SourceLength) {
 	Tokenizer *this = alloc(sizeof(Tokenizer));
 
 	this->SourceFilePath = SourceFilePath;
@@ -64,7 +28,7 @@ Tokenizer *Tokenizer_New(char* SourceFilePath, char *Source, int SourceLength) {
 	return this;
 }
 
-void Tokenizer_Reset(Tokenizer* this, char* Source, int SourceLength) {
+unused void Tokenizer_Reset(Tokenizer* this, char* Source, size_t SourceLength) {
 	this->Source = Source;
 	this->SourceLength = SourceLength;
 	this->LineNumber = 1;
@@ -100,11 +64,11 @@ Token *Tokenizer_AppendToken(Tokenizer *this, int Position, int Length, TokenTyp
 
 	return NewToken;
 }
-Token *Tokenizer_AppendToken_Int(Tokenizer* this, int Position, int Length, TokenType Type, int Value) {
+Token *Tokenizer_AppendToken_Int(Tokenizer* this, int Position, int Length, TokenType Type, int64_t Value) {
 	return Tokenizer_AppendToken(this, Position, Length, Type, (void*)Value);
 }
 
-char Tokenizer_AtEnd(Tokenizer *this) {
+int Tokenizer_AtEnd(Tokenizer* this) {
 	return this->SourceIndex >= this->SourceLength;
 }
 
@@ -145,9 +109,9 @@ Token *Tokenizer_GetNextToken(Tokenizer *this) {
 		if (FirstCharacter == ';') {
 			int CurrentLine = this->LineNumber;
 
-			while (this->LineNumber = CurrentLine && !Tokenizer_AtEnd(this)) {
+			while (this->LineNumber == CurrentLine && !Tokenizer_AtEnd(this)) {
 				Tokenizer_GetNextToken(this);
-			};
+			}
 
 			continue;
 		}
@@ -171,6 +135,7 @@ Token *Tokenizer_GetNextToken(Tokenizer *this) {
 				}
 
 				return Tokenizer_AppendToken_Int(this, TokenStartPosition, 1, PUNCTUATION, TILDE);
+			default: break;
 		}
 
 		if (FirstCharacter == '"') {

@@ -24,7 +24,7 @@ void Value_Print(Value* TargetValue) {
 			putchar('"');
 			break;
 		case VALUE_INTEGER:
-			printf("%lli", TargetValue->IntegerValue);
+			printf("%li", TargetValue->IntegerValue);
 			break;
 		case VALUE_FUNCTION:
 			printf("<function>");
@@ -42,6 +42,8 @@ void Value_Print(Value* TargetValue) {
 			break;
 		case VALUE_CHILD:
 			printf("<process %i>", TargetValue->ChildValue->PID);
+			break;
+		case VALUE_ANY:
 			break;
 	}
 }

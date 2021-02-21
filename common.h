@@ -10,17 +10,22 @@
 #include <sys/stat.h>
 #include "io.h"
 
+
 extern jmp_buf OnError;
+
+#define unused __unused
 
 #define EXTRA_ADDITIONS 1
 
-#define DEBUG_EVAL 1
-#define DEBUG_SYMBOLS 1
-#define DEBUG_REFCOUNTS 1
+#define DEBUG_EVAL 0
 
 #if DEBUG_EVAL
 
+#define DEBUG_SYMBOLS 1
+#define DEBUG_REFCOUNTS 1
+
 extern int EvalDebugDepth;
+extern int EvalNextValueID;
 
 #define EVAL_DEBUG_PRELUDE EvalDebugDepth++
 #define EVAL_DEBUG_EPILOG EvalDebugDepth--
@@ -28,15 +33,13 @@ extern int EvalDebugDepth;
 
 #endif
 
-int FileDescriptorSize(int);
-
 typedef enum {
 	STRING_SELF_ALLOCATED,
 	STRING_BORROWING_MEMORY
 } StringAllocationMethod;
 
 typedef struct {
-	int Length;
+	size_t Length;
 	char* Buffer;
 	StringAllocationMethod AllocationMethod;
 } String;
@@ -62,8 +65,8 @@ typedef struct {
 void Context_Alert(ErrorContext*, char*, char);
 void Context_Error(ErrorContext*, char*);
 
-#define CloneContext(Left, Right) (Context_Clone(&Left->Context, &Right->Context))
-#define MergeContext(Left, Right) (Context_Merge(&Left->Context, &Right->Context))
+#define CloneContext(Left, Right) (Context_Clone(&(Left)->Context, &(Right)->Context))
+#define MergeContext(Left, Right) (Context_Merge(&(Left)->Context, &(Right)->Context))
 #define Error(Left, Right) (Context_Error(&Left->Context, Right))
 
 ErrorContext* Context_Clone(ErrorContext*, ErrorContext*);
@@ -75,7 +78,7 @@ struct TagValue;
 struct TagEnvironment;
 
 typedef struct {
-	int Length;
+	size_t Length;
 	struct TagValue** Values;
 } List;
 
@@ -107,7 +110,10 @@ typedef struct TagValue {
 	ValueType Type;
 
 	union {
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
 		void* RawValue;
+#pragma clang diagnostic pop
 		List* ListValue;
 		int64_t IntegerValue;
 		String* StringValue;
@@ -118,16 +124,21 @@ typedef struct TagValue {
 	};
 
 	int ReferenceCount;
+
+#if DEBUG_EVAL
+	int ID;
+#endif
+
 } Value;
 
-String* String_New(char*, int);
-String* String_Adopt(char*, int);
-String* String_Borrow(char*, int);
+String* String_New(char*, size_t);
+String* String_Adopt(char*, size_t);
+String* String_Borrow(char*, size_t);
 String* String_Clone(String*);
 void String_Free(String*);
 void String_Print(String*);
 
-List* List_New(int);
+List* List_New(size_t);
 void List_Free(List*);
 
 Value* Value_AddReference(Value*);
@@ -144,6 +155,7 @@ Value* Value_Clone(Value*);
 										int64_t: Value_New_Integer, \
 										long long: Value_New_Integer, \
 										int: Value_New_Integer, \
+										size_t: Value_New_Integer, \
 										char: Value_New_Integer)(Type, Value)  \
 
 #define Value_Nil() (Value_New(VALUE_NIL, 0))

@@ -3,9 +3,6 @@
 #include "tokenizer.h"
 #include "reader.h"
 
-Value* ReadList(Tokenizer*);
-Value* ReadAtom(Tokenizer*);
-
 Value* ReadForm(Tokenizer* this) {
 	Token* FirstToken = Tokenizer_Peek(this);
 
@@ -20,7 +17,7 @@ Value* ReadForm(Tokenizer* this) {
 Value* ReadList(Tokenizer* this) {
 	Token* FirstToken = Tokenizer_Next(this);
 
-	if (FirstToken->Type != PUNCTUATION || FirstToken->OperatorValue != OPEN_PAREN) {
+	if (FirstToken->Type != PUNCTUATION || FirstToken->PunctuationValue != OPEN_PAREN) {
 		Error(FirstToken, "Expected opening '(' for list");
 		longjmp(OnError, 0);
 	}

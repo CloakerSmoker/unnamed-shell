@@ -33,7 +33,7 @@ typedef struct TagChildProcess {
 } ChildProcess;
 
 ChildProcess* ChildProcess_New(char*, char**);
-char* ChildProcess_ReadStream(ChildProcess*, int, int*);
-void ChildProcess_WriteStream(ChildProcess*, int, char*, int);
+char* ChildProcess_ReadStream(ChildProcess*, int, size_t*);
+__unused void ChildProcess_WriteStream(ChildProcess*, int, char*, size_t);
 
 #endif //MAL_IO_H

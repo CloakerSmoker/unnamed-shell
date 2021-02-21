@@ -1,15 +1,6 @@
 #include "common.h"
-#include <stdlib.h>
 
 jmp_buf OnError;
-
-int FileDescriptorSize(int FileDescriptor) {
-	struct stat FileStatus;
-
-	fstat(FileDescriptor, &FileStatus);
-
-	return (int)FileStatus.st_size;
-}
 
 char TranslateColor(char Color) {
 	if (Color & BRIGHT) {
@@ -52,7 +43,7 @@ void Context_Alert(ErrorContext* Context, char* Message, char Color) {
 
 	snprintf(LineNumberString, 100, "%d", Context->LineNumber);
 
-	int LineNumberLength = strlen(LineNumberString);
+	int LineNumberLength = (int)strlen(LineNumberString);
 
 	if (Message) {
 		SetTerminalColors(Color, BLACK);
@@ -72,7 +63,7 @@ void Context_Alert(ErrorContext* Context, char* Message, char Color) {
 
 	int OffsetInSource = Context->Position;
 	char* LineText = FindStartOfLine(Context->Source, OffsetInSource);
-	int PositionInLine = OffsetInSource - (LineText - Context->Source);
+	int PositionInLine = OffsetInSource - (int)(LineText - Context->Source);
 
 	int DashCount = 0;
 
@@ -152,7 +143,7 @@ ErrorContext *Context_Merge(ErrorContext* Left, ErrorContext* Right) {
 /// \param Text A pointer to the string to copy
 /// \param Length
 /// \return
-String* String_New(char* Text, int Length) {
+String* String_New(char* Text, size_t Length) {
 	String* Result = malloc(sizeof(String));
 
 	Result->Buffer = strndup(Text, Length);
@@ -165,7 +156,7 @@ String* String_New(char* Text, int Length) {
 /// \param Text A pointer to the string to borrow
 /// \param Length
 /// \return
-String* String_Borrow(char* Text, int Length) {
+String* String_Borrow(char* Text, size_t Length) {
 	String* Result = malloc(sizeof(String));
 
 	Result->Buffer = Text;
@@ -178,7 +169,7 @@ String* String_Borrow(char* Text, int Length) {
 /// \param Text A pointer to the string to take ownership of
 /// \param Length
 /// \return
-String* String_Adopt(char* Text, int Length) {
+String* String_Adopt(char* Text, size_t Length) {
 	String* Result = malloc(sizeof(String));
 
 	Result->Buffer = Text;
@@ -187,7 +178,7 @@ String* String_Adopt(char* Text, int Length) {
 
 	return Result;
 }
-/// Creates a new String containing the exact same text as the String passed, but in a seperate allocation.
+/// Creates a new String containing the exact same text as the String passed, but in a separate allocation.
 /// \param Target A pointer to the String to clone
 /// \return
 String* String_Clone(String* Target) {
@@ -209,10 +200,10 @@ void String_Free(String* Target) {
 	free(Target);
 }
 void String_Print(String* Target) {
-	printf("%.*s", Target->Length, Target->Buffer);
+	printf("%.*s", (int)Target->Length, Target->Buffer);
 }
 
-List* List_New(int Length) {
+List* List_New(size_t Length) {
 	List* Result = alloc(sizeof(List));
 
 	Result->Length = Length;
@@ -226,6 +217,12 @@ void List_Free(List* Target) {
 }
 
 void Value_Free(Value* TargetValue) {
+#if DEBUG_EVAL
+	SetTerminalColors(GREEN | BRIGHT, BLACK);
+	EVAL_DEBUG_PRINT_PREFIX printf("Destroy %i\n", TargetValue->ID);
+	SetTerminalColors(WHITE | BRIGHT, BLACK);
+#endif
+
 	switch (TargetValue->Type) {
 		case VALUE_STRING:
 		case VALUE_IDENTIFIER:
@@ -245,6 +242,7 @@ void Value_Free(Value* TargetValue) {
 
 			List_Free(TargetValue->ListValue);
 			break;
+		default: break;
 	}
 
 	free(TargetValue);
@@ -252,12 +250,15 @@ void Value_Free(Value* TargetValue) {
 
 void Value_Print(Value*);
 
+#if DEBUG_EVAL
 int EvalDebugDepth = 0;
+int EvalNextValueID = 1;
+#endif
 
 Value* Value_AddReference(Value* TargetValue) {
 #if DEBUG_REFCOUNTS
-	EVAL_DEBUG_PRINT_PREFIX;
-	printf("AddRef %p '", TargetValue);
+	SetTerminalColors(RED | GREEN, BLACK);
+	EVAL_DEBUG_PRINT_PREFIX printf("AddRef %i '", TargetValue->ID);
 	Value_Print(TargetValue);
 #endif
 
@@ -265,14 +266,15 @@ Value* Value_AddReference(Value* TargetValue) {
 
 #if DEBUG_REFCOUNTS
 	printf("' (%i references left)\n", TargetValue->ReferenceCount);
+	SetTerminalColors(WHITE | BRIGHT, BLACK);
 #endif
 
 	return TargetValue;
 }
 int Value_Release(Value* TargetValue) {
 #if DEBUG_REFCOUNTS
-	EVAL_DEBUG_PRINT_PREFIX;
-	printf("Release %p '", TargetValue);
+	SetTerminalColors(BLUE | BRIGHT, BLACK);
+	EVAL_DEBUG_PRINT_PREFIX printf("Release %i '", TargetValue->ID);
 	Value_Print(TargetValue);
 #endif
 
@@ -280,6 +282,7 @@ int Value_Release(Value* TargetValue) {
 
 #if DEBUG_REFCOUNTS
 	printf("' (%i references left)\n", ReferenceCount);
+	SetTerminalColors(WHITE | BRIGHT, BLACK);
 #endif
 
 	if (ReferenceCount == 0) {
@@ -295,6 +298,14 @@ Value* Value_New_Pointer(ValueType Type, void* RawValue) {
 	Result->Type = Type;
 	Result->RawValue = RawValue;
 
+#if DEBUG_EVAL
+	Result->ID = EvalNextValueID++;
+
+	SetTerminalColors(RED, BLACK);
+	EVAL_DEBUG_PRINT_PREFIX printf("Created %i\n", Result->ID);
+	SetTerminalColors(WHITE | BRIGHT, BLACK);
+#endif
+
 	return Value_AddReference(Result);
 }
 Value* Value_New_Integer(ValueType Type, int64_t RawValue) {
@@ -303,11 +314,18 @@ Value* Value_New_Integer(ValueType Type, int64_t RawValue) {
 	Result->Type = Type;
 	Result->IntegerValue = RawValue;
 
+#if DEBUG_EVAL
+	Result->ID = EvalNextValueID++;
+
+	SetTerminalColors(RED, BLACK);
+	EVAL_DEBUG_PRINT_PREFIX printf("Created %i\n", Result->ID);
+	SetTerminalColors(WHITE | BRIGHT, BLACK);
+#endif
+
 	return Value_AddReference(Result);
 }
 Value* Value_Clone(Value* TargetValue) {
-	Value* Result = alloc(sizeof(Value));
-	Result->Type = TargetValue->Type;
+	Value* Result = Value_New(TargetValue->Type, TargetValue->IntegerValue);
 
 	switch (TargetValue->Type) {
 		case VALUE_LIST:
@@ -336,5 +354,5 @@ Value* Value_Clone(Value* TargetValue) {
 			break;
 	}
 
-	return Value_AddReference(Result);
+	return Result;
 }

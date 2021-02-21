@@ -1,7 +1,7 @@
 #include "io.h"
 #include "common.h"
 
-StandardStream* StandardStream_Initialize(StandardStream* Stream) {
+void StandardStream_Initialize(StandardStream* Stream) {
 	pipe(Stream->Pipe);
 }
 
@@ -40,10 +40,10 @@ ChildProcess* ChildProcess_New(char* CommandPath, char** CommandArguments) {
 	return Result;
 }
 
-char* ChildProcess_ReadStream(ChildProcess* Child, int StreamNumber, int* OutSize) {
+char* ChildProcess_ReadStream(ChildProcess* Child, int StreamNumber, size_t* OutSize) {
 	StandardStream* Stream = &Child->Streams[StreamNumber];
 
-	int Size = 0;
+	size_t Size = 0;
 	char Byte;
 
 	while (read(Stream->Out, &Byte, 1) == 0) {}
@@ -61,8 +61,8 @@ char* ChildProcess_ReadStream(ChildProcess* Child, int StreamNumber, int* OutSiz
 
 	return Data;
 }
-//void ChildProcess_WriteStream(ChildProcess* Child, int StreamNumber, char* Data, int Size) {
-//	StandardStream* Stream = &Child->Streams[StreamNumber];
-//
-//	write(Stream->In, Data, Size);
-//}
+unused void ChildProcess_WriteStream(ChildProcess* Child, int StreamNumber, char* Data, size_t Size) {
+	StandardStream* Stream = &Child->Streams[StreamNumber];
+
+	write(Stream->In, Data, Size);
+}

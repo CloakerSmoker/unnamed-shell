@@ -13,18 +13,14 @@
 typedef struct TagSymbolEntry {
 	int Hash;
 
-	union {
-		Value* Value;
-		Value* (*Function)(Value*);
-		void* VoidValue;
-	};
+	Value* Value;
 
 	struct TagSymbolEntry* Next;
 } SymbolEntry;
 
 typedef struct {
 	SymbolEntry** Elements;
-	int ElementCapacity;
+	size_t ElementCapacity;
 } SymbolMap;
 
 typedef struct TagEnvironment {
@@ -32,8 +28,17 @@ typedef struct TagEnvironment {
 	SymbolMap* Symbols;
 } Environment;
 
+SymbolMap* SymbolMap_New();
+void SymbolMap_Set(SymbolMap*, char*, size_t, void*);
+
 Environment* Eval_Setup();
+Environment* Environment_New_Bindings(Environment*, Value*, Value*);
 Value* Eval_Apply(Environment*, Value*);
 Value* Eval_GetParameterRaw(Value*, ValueType, int);
+Value* Eval_CallFunction(Environment*, Value*);
+
+#define Eval_GetParameter(List, Type, Index) Eval_GetParameterRaw((List), (Type), (Index) + 1)
+#define Eval_GetParameterReference(List, Type, Index) Value_AddReference(Eval_GetParameter((List), (Type), (Index)))
+#define Eval_GetParameterReferenceRaw(List, Type, Index) Value_AddReference(Eval_GetParameterRaw((List), (Type), (Index)))
 
 #endif //MAL_EVAL_H

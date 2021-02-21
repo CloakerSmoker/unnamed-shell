@@ -4,20 +4,11 @@
 #define MAL_TOKENIZER_H
 
 typedef enum {
-	INTEGER,
 	STRING,
 	IDENTIFIER,
-	OPERATOR,
 	PUNCTUATION,
 	END,
 } TokenType;
-
-typedef enum {
-	PLUS,
-	MINUS,
-	TIMES,
-	DIVIDE
-} Operator;
 
 typedef enum {
 	OPEN_PAREN,
@@ -42,7 +33,6 @@ typedef struct {
 		int64_t IntegerValue;
 		String* StringValue;
 		String* IdentifierValue;
-		Operator OperatorValue;
 		Punctuation PunctuationValue;
 		void* AnyValue;
 	};
@@ -53,22 +43,22 @@ typedef struct {
 
 	char* Source;
 	int SourceIndex;
-	int SourceLength;
+	size_t SourceLength;
 	int LineNumber;
 
 	Token** Tokens;
-	int TokenCapacity;
+	size_t TokenCapacity;
 	int TokenIndex;
 	int MaxTokenIndex;
 } Tokenizer;
 
 char IsSpecial(char);
-void Token_Print(Token*);
+unused void Token_Print(Token*);
 
-Tokenizer* Tokenizer_New(char*, char*, int);
-void Tokenizer_Reset(Tokenizer*, char*, int);
+Tokenizer* Tokenizer_New(char*, char*, size_t);
+unused void Tokenizer_Reset(Tokenizer*, char*, size_t);
 Token* Tokenizer_AppendToken(Tokenizer*, int, int, TokenType, void*);
-char Tokenizer_AtEnd(Tokenizer*);
+int Tokenizer_AtEnd(Tokenizer*);
 char Tokenizer_PeekNextCharacter(Tokenizer*);
 char Tokenizer_GetNextCharacter(Tokenizer*);
 Token* Tokenizer_GetNextToken(Tokenizer*);
