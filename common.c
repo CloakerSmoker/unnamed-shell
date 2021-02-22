@@ -211,6 +211,10 @@ List* List_New(size_t Length) {
 
 	return Result;
 }
+void List_Extend(List* Target, size_t ElementCount) {
+	Target->Length += ElementCount;
+	Target->Values = realloc(Target->Values, Target->Length * sizeof(Value*));
+}
 void List_Free(List* Target) {
 	free(Target->Values);
 	free(Target);
@@ -347,8 +351,10 @@ Value* Value_Clone(Value* TargetValue) {
 			Result->StringValue = String_Clone(TargetValue->StringValue);
 			break;
 		case VALUE_FUNCTION:
-			Value_AddReference(TargetValue->FunctionValue->ParameterBindings);
-			Value_AddReference(TargetValue->FunctionValue->Body);
+			if (!TargetValue->FunctionValue->IsNativeFunction) {
+				Value_AddReference(TargetValue->FunctionValue->ParameterBindings);
+				Value_AddReference(TargetValue->FunctionValue->Body);
+			}
 		default:
 			Result->IntegerValue = TargetValue->IntegerValue;
 			break;

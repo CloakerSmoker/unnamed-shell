@@ -33,6 +33,7 @@ void SymbolMap_Set(SymbolMap*, char*, size_t, void*);
 
 Environment* Eval_Setup();
 Environment* Environment_New_Bindings(Environment*, Value*, Value*);
+void Environment_ReleaseAndFree(Environment*);
 Value* Eval_Apply(Environment*, Value*);
 Value* Eval_GetParameterRaw(Value*, ValueType, int);
 Value* Eval_CallFunction(Environment*, Value*);

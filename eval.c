@@ -184,8 +184,8 @@ void Environment_ReleaseAndFree(Environment* this) {
 		while (NextSymbol != NULL) {
 			Value_Release(NextSymbol->Value);
 
-			SymbolEntry* LastSymbol = NextSymbol = NextSymbol->Next;
-
+			SymbolEntry* LastSymbol = NextSymbol;
+			NextSymbol = NextSymbol->Next;
 			free(LastSymbol);
 		}
 	}
@@ -209,6 +209,15 @@ char* Eval_GetTypeName(ValueType Type) {
 	}
 }
 
+void Eval_TypeError(Value* Blame, ValueType ExpectedType) {
+	char MessageBuffer[100] = {0};
+
+	snprintf(MessageBuffer, 100, "Wrong types, expected %s, got %s", Eval_GetTypeName(ExpectedType), Eval_GetTypeName(Blame->Type));
+
+	Error(Blame, MessageBuffer);
+	longjmp(OnError, 0);
+}
+
 Value* Eval_GetParameterRaw(Value* ParameterList, ValueType ExpectedType, int Index) {
 	if (ParameterList->ListValue->Length <= Index) {
 		Error(ParameterList, "Not enough parameters");
@@ -218,12 +227,7 @@ Value* Eval_GetParameterRaw(Value* ParameterList, ValueType ExpectedType, int In
 	Value* ParameterValue = ParameterList->ListValue->Values[Index];
 
 	if (ParameterValue->Type != ExpectedType && ExpectedType != VALUE_ANY) {
-		char MessageBuffer[100] = {0};
-
-		snprintf(MessageBuffer, 100, "Wrong types, expected %s, got %s", Eval_GetTypeName(ExpectedType), Eval_GetTypeName(ParameterValue->Type));
-
-		Error(ParameterValue, MessageBuffer);
-		longjmp(OnError, 0);
+		Eval_TypeError(ParameterValue, ExpectedType);
 	}
 
 	return ParameterValue;
@@ -336,6 +340,68 @@ Value* Eval_ToBool(Value* Target) {
 	Value_Release(Target);
 
 	return Value_New(VALUE_BOOL, BoolValue);
+}
+
+Value* Eval_Quote(Environment* this, Value* Target, int IsQuasiQuote) {
+	if (Target->Type == VALUE_LIST && Target->ListValue->Length != 0) {
+		Value* FirstValue = Target->ListValue->Values[0];
+
+		if (FirstValue->Type == VALUE_IDENTIFIER && IsQuasiQuote) {
+			String* Name = FirstValue->IdentifierValue;
+
+			if (!strncmp(Name->Buffer, "unquote", Name->Length)) {
+				Value* UnquoteValue = Eval_GetParameterReference(Target, VALUE_ANY, 0);
+
+				return Eval_Apply(this, UnquoteValue);
+			}
+		}
+
+		List* ResultList = List_New(Target->ListValue->Length);
+		int ResultListIndex = 0;
+
+		for (int Index = 0; Index < Target->ListValue->Length; Index++) {
+			Value* ListElement = Target->ListValue->Values[Index];
+
+			if (ListElement->Type == VALUE_LIST && ListElement->ListValue->Length != 0) {
+				FirstValue = ListElement->ListValue->Values[0];
+
+				if (FirstValue->Type == VALUE_IDENTIFIER && IsQuasiQuote) {
+					String* Name = FirstValue->IdentifierValue;
+
+					if (!strncmp(Name->Buffer, "splice-unquote", Name->Length)) {
+						ResultList->Length--; // Exclude `"splice-unquote"` from the list length
+
+						Value* RawUnquoteValue = Eval_GetParameterReference(ListElement, VALUE_ANY, 0);
+
+						Value* UnquoteValue = Eval_Apply(this, RawUnquoteValue);
+
+						if (UnquoteValue->Type != VALUE_LIST) {
+							Eval_TypeError(UnquoteValue, VALUE_LIST);
+						}
+
+						List* SpliceList = UnquoteValue->ListValue;
+
+						List_Extend(ResultList, SpliceList->Length);
+
+						for (int SpliceIndex = 0; SpliceIndex < SpliceList->Length; SpliceIndex++) {
+							Value* NextSpliceValue = Value_AddReference(SpliceList->Values[SpliceIndex]);
+
+							ResultList->Values[ResultListIndex++] = NextSpliceValue;
+						}
+
+						continue;
+					}
+				}
+			}
+
+			ResultList->Values[ResultListIndex++] = Eval_Quote(this, ListElement, IsQuasiQuote);
+		}
+
+		return Value_New(VALUE_LIST, ResultList);
+	}
+	else {
+		return Value_Clone(Target);
+	}
 }
 
 Value* Eval_Apply(Environment* this, Value* Target) {
@@ -517,6 +583,20 @@ Value* Eval_Apply(Environment* this, Value* Target) {
 						Value* FileTree = ReadForm(FileTokenizer);
 
 						Result = Eval_Apply(this, FileTree);
+
+						break;
+					}
+					else if (!strncmp(Name->Buffer, "quote", Name->Length)) {
+						Value* QuoteValue = Eval_GetParameter(Target, VALUE_ANY, 0);
+
+						Result = Eval_Quote(this, QuoteValue, 0);
+
+						break;
+					}
+					else if (!strncmp(Name->Buffer, "quasiquote", Name->Length)) {
+						Value* QuoteValue = Eval_GetParameter(Target, VALUE_ANY, 0);
+
+						Result = Eval_Quote(this, QuoteValue, 1);
 
 						break;
 					}

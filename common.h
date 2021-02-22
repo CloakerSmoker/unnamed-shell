@@ -17,7 +17,7 @@ extern jmp_buf OnError;
 
 #define EXTRA_ADDITIONS 1
 
-#define DEBUG_EVAL 0
+#define DEBUG_EVAL 1
 
 #if DEBUG_EVAL
 
@@ -139,6 +139,7 @@ void String_Free(String*);
 void String_Print(String*);
 
 List* List_New(size_t);
+void List_Extend(List*, size_t);
 void List_Free(List*);
 
 Value* Value_AddReference(Value*);

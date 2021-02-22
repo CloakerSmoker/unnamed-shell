@@ -292,6 +292,57 @@ EVAL_FUNCTION Value* Eval_GetReferenceCount(Value* Parameters) {
 	return Value_New(VALUE_INTEGER, Parameter->ReferenceCount);
 }
 
+EVAL_FUNCTION Value* Eval_Eval(Value* Parameters) {
+	Value* AST = Eval_GetParameterReference(Parameters, VALUE_ANY, 0);
+
+	Environment* Env = Eval_Setup();
+
+	Value* Result = Eval_Apply(Env, AST);
+
+	Environment_ReleaseAndFree(Env);
+
+	return Result;
+}
+EVAL_FUNCTION Value* Eval_Parse(Value* Parameters) {
+	Value* Input = Eval_GetParameter(Parameters, VALUE_STRING, 0);
+
+	char* ClonedInput = strndup(Input->StringValue->Buffer, Input->StringValue->Length);
+
+	Tokenizer* InputTokenizer = Tokenizer_New("*", ClonedInput, Input->StringValue->Length);
+
+	Value* Tree = ReadForm(InputTokenizer);
+
+	return Tree;
+}
+
+EVAL_FUNCTION Value* Eval_Slurp(Value* Parameters) {
+	Value* FileNameValue = Eval_GetParameter(Parameters, VALUE_STRING, 0);
+	String* FileName = FileNameValue->StringValue;
+
+	FILE* FileDescriptor = fopen(FileName->Buffer, "r");
+
+	if (FileDescriptor == NULL) {
+		char MessageBuffer[100] = {0};
+
+		snprintf(MessageBuffer, 100, "Could not open file '%s'", FileName->Buffer);
+
+		Error(FileNameValue, MessageBuffer);
+		longjmp(OnError, 0);
+	}
+
+	fseek(FileDescriptor, 0, SEEK_END);
+
+	long Length = ftell(FileDescriptor);
+
+	fseek(FileDescriptor, 0, SEEK_SET);
+
+	char* Buffer = alloc(Length + 1);
+
+	fread(Buffer, 1, Length, FileDescriptor);
+
+	return Value_New(VALUE_STRING, String_Adopt(Buffer, strlen(Buffer)));
+}
+
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "bugprone-sizeof-expression"
 
@@ -326,6 +377,9 @@ SymbolMap_Set(Symbols, #LispName, strlen(#LispName), FunctionValue);} while (0)
 	AddSymbolFunction(CreateProcess, process.make);
 	AddSymbolFunction(ReadProcessOutput, process.read_output);
 	AddSymbolFunction(GetReferenceCount, debug.grc);
+	AddSymbolFunction(Eval, eval);
+	AddSymbolFunction(Parse, parse);
+	AddSymbolFunction(Slurp, slurp);
 
 	Environment* Result = alloc(sizeof(Environment));
 
