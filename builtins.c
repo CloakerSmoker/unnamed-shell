@@ -2,10 +2,10 @@
 #include "builtins.h"
 
 #define Eval_Binary_Int(Name, Operator) Value* Eval_ ## Name(Value* Parameters) { \
-    Value* Result = Value_New(VALUE_INTEGER, 0);                                             \
-    Result->IntegerValue = Eval_GetParameter(Parameters, VALUE_INTEGER, 0)->IntegerValue Operator Eval_GetParameter(Parameters, VALUE_INTEGER, 1)->IntegerValue; \
+    Value* Result = NewValue(VALUE_TYPE_INTEGER, 0);                                             \
+    Result->IntegerValue = GetListIndex(Parameters, VALUE_TYPE_INTEGER, 0)->IntegerValue Operator GetListIndex(Parameters, VALUE_TYPE_INTEGER, 1)->IntegerValue; \
     for (int Index = 3; Index < Parameters->ListValue->Length; Index++) {         \
-        Result->IntegerValue Operator ## = Eval_GetParameter(Parameters, VALUE_INTEGER, Index - 1)->IntegerValue; \
+        Result->IntegerValue Operator ## = GetListIndex(Parameters, VALUE_TYPE_INTEGER, Index - 1)->IntegerValue; \
     }                                                                              \
     return Result;                                                                    \
 }
@@ -24,7 +24,7 @@ EVAL_FUNCTION Value* Eval_Quit(Value* Parameters) {
 	int64_t ExitCode = 0;
 
 	if (Parameters->ListValue->Length >= 2) {
-		ExitCode = Eval_GetParameter(Parameters, VALUE_INTEGER, 0)->IntegerValue;
+		ExitCode = GetListIndex(Parameters, VALUE_TYPE_INTEGER, 0)->IntegerValue;
 	}
 
 	exit((int)ExitCode);
@@ -56,19 +56,19 @@ EVAL_FUNCTION Value* Eval_ListFiles(unused Value* Parameters) {
 				NameString[NameLength++] = '/';
 			}
 
-			Values[Index++] = Value_New(VALUE_STRING, String_Adopt(NameString, NameLength));
+			Values[Index++] = NewValue(VALUE_TYPE_STRING, AdoptString(NameString, NameLength));
 		}
 
 		closedir(CurrentDirectory);
 
-		List* ListResult = List_New(EntryCount);
+		List* ListResult = NewList(EntryCount);
 
 		ListResult->Values = Values;
 
-		return Value_New(VALUE_LIST, ListResult);
+		return NewValue(VALUE_TYPE_LIST, ListResult);
 	}
 
-	return Value_Nil();
+	return NilValue();
 }
 
 EVAL_FUNCTION Value* Eval_Print(Value* Parameters) {
@@ -77,10 +77,10 @@ EVAL_FUNCTION Value* Eval_Print(Value* Parameters) {
 	for (int Index = 1; Index < ParameterList->Length; Index++) {
 		Value* NextValue = ParameterList->Values[Index];
 
-		if (NextValue->Type == VALUE_STRING) {
-			NextValue->Type = VALUE_IDENTIFIER;
+		if (NextValue->Type == VALUE_TYPE_STRING) {
+			NextValue->Type = VALUE_TYPE_IDENTIFIER;
 			Value_Print(NextValue);
-			NextValue->Type = VALUE_STRING;
+			NextValue->Type = VALUE_TYPE_STRING;
 		}
 		else {
 			Value_Print(NextValue);
@@ -91,123 +91,123 @@ EVAL_FUNCTION Value* Eval_Print(Value* Parameters) {
 		}
 	}
 
-	return Value_Nil();
+	return NilValue();
 }
 
 EVAL_FUNCTION Value* Eval_ChangeDirectory(Value* Parameters) {
-	String* TargetDirectory = Eval_GetParameter(Parameters, VALUE_STRING, 0)->StringValue;
+	String* TargetDirectory = GetListIndex(Parameters, VALUE_TYPE_STRING, 0)->StringValue;
 
 	int ErrorCode = chdir(TargetDirectory->Buffer);
 
-	return Value_New(VALUE_INTEGER, ErrorCode);
+	return NewValue(VALUE_TYPE_INTEGER, ErrorCode);
 }
 
 EVAL_FUNCTION Value* Eval_GetCurrentDirectory(unused Value* Parameters) {
 	char* Buffer = getcwd(NULL, 0);
 
-	return Value_New(VALUE_STRING, String_Adopt(Buffer, strlen(Buffer)));
+	return NewValue(VALUE_TYPE_STRING, AdoptString(Buffer, strlen(Buffer)));
 }
 
 EVAL_FUNCTION Value* Eval_ListMake(Value* Parameters) {
 	size_t Length = Parameters->ListValue->Length - 1;
 
-	List* ResultList = List_New(Length);
+	List* ResultList = NewList(Length);
 
 	for (int Index = 0; Index < Length; Index++) {
-		ResultList->Values[Index] = Value_AddReference(Parameters->ListValue->Values[Index + 1]);
+		ResultList->Values[Index] = AddReferenceToValue(Parameters->ListValue->Values[Index + 1]);
 	}
 
-	return Value_New(VALUE_LIST, ResultList);
+	return NewValue(VALUE_TYPE_LIST, ResultList);
 }
 
 EVAL_FUNCTION Value* Eval_ListLength(Value* Parameters) {
-	Value* TargetValue = Eval_GetParameter(Parameters, VALUE_LIST, 0);
+	Value* TargetValue = GetListIndex(Parameters, VALUE_TYPE_LIST, 0);
 
-	return Value_New(VALUE_INTEGER, TargetValue->ListValue->Length);
+	return NewValue(VALUE_TYPE_INTEGER, TargetValue->ListValue->Length);
 }
 
 EVAL_FUNCTION Value* Eval_ListIndex(Value* Parameters) {
-	List* TargetList = Eval_GetParameter(Parameters, VALUE_LIST, 0)->ListValue;
-	int64_t TargetIndex = Eval_GetParameter(Parameters, VALUE_INTEGER, 1)->IntegerValue;
+	List* TargetList = GetListIndex(Parameters, VALUE_TYPE_LIST, 0)->ListValue;
+	int64_t TargetIndex = GetListIndex(Parameters, VALUE_TYPE_INTEGER, 1)->IntegerValue;
 
 	if (TargetIndex >= TargetList->Length || TargetIndex < 0) {
-		return Value_Nil();
+		return NilValue();
 	}
 
-	return Value_AddReference(TargetList->Values[TargetIndex]);
+	return AddReferenceToValue(TargetList->Values[TargetIndex]);
 }
 
 EVAL_FUNCTION Value* Eval_ListMap(Value* Parameters) {
-	List* Elements = Eval_GetParameter(Parameters, VALUE_LIST, 0)->ListValue;
-	Value* MapFunction = Eval_GetParameterReference(Parameters, VALUE_FUNCTION, 1);
+	List* Elements = GetListIndex(Parameters, VALUE_TYPE_LIST, 0)->ListValue;
+	Value* MapFunction = GetReferenceToListIndex(Parameters, VALUE_TYPE_FUNCTION, 1);
 
-	List* ResultList = List_New(Elements->Length);
-	List* CallList = List_New(2);
+	List* ResultList = NewList(Elements->Length);
+	List* CallList = NewList(2);
 
 	CallList->Values[0] = MapFunction;
-	CallList->Values[1] = Value_Nil();
+	CallList->Values[1] = NilValue();
 
-	Value* CallValue = Value_New(VALUE_LIST, CallList);
+	Value* CallValue = NewValue(VALUE_TYPE_LIST, CallList);
 
 	for (int Index = 0; Index < Elements->Length; Index++) {
-		Value* NextValue = Value_AddReference(Elements->Values[Index]);
+		Value* NextValue = AddReferenceToValue(Elements->Values[Index]);
 
-		Value_Release(CallList->Values[1]);
+		ReleaseReferenceToValue(CallList->Values[1]);
 		CallList->Values[1] = NextValue;
 
-		Value* NewValue = Eval_CallFunction(NULL, Value_AddReference(CallValue));
+		Value* NewValue = EvaluateFunctionCall(NULL, AddReferenceToValue(CallValue));
 
 		ResultList->Values[Index] = NewValue;
 	}
 
-	Value_Release(CallValue);
+	ReleaseReferenceToValue(CallValue);
 
-	return Value_New(VALUE_LIST, ResultList);
+	return NewValue(VALUE_TYPE_LIST, ResultList);
 }
 
 EVAL_FUNCTION Value* Eval_ListPush(Value* Parameters) {
-	Value* TargetListValue = Eval_GetParameter(Parameters, VALUE_LIST, 0);
+	Value* TargetListValue = GetListIndex(Parameters, VALUE_TYPE_LIST, 0);
 	List* TargetList = TargetListValue->ListValue;
 
 	size_t AdditionalElementCount = Parameters->ListValue->Length - 2;
 	size_t OldElementCount = TargetList->Length;
 	size_t NewElementCount = OldElementCount + AdditionalElementCount;
 
-	List* ResultList = List_New(NewElementCount);
+	List* ResultList = NewList(NewElementCount);
 
 	for (int Index = 0; Index < OldElementCount; Index++) {
 		Value* NextValue = TargetList->Values[Index];
 
-		ResultList->Values[Index] = Value_AddReference(NextValue);
+		ResultList->Values[Index] = AddReferenceToValue(NextValue);
 	}
 
 	for (int Index = 0; Index < AdditionalElementCount; Index++) {
 		Value* NextValue = Parameters->ListValue->Values[Index + 2];
 
-		ResultList->Values[OldElementCount + Index] = Value_AddReference(NextValue);
+		ResultList->Values[OldElementCount + Index] = AddReferenceToValue(NextValue);
 	}
 
-	Value_Release(TargetListValue);
+	ReleaseReferenceToValue(TargetListValue);
 
-	return Value_New(VALUE_LIST, ResultList);
+	return NewValue(VALUE_TYPE_LIST, ResultList);
 }
 
 EVAL_FUNCTION Value* Eval_StringLength(Value* Parameters) {
-	String* TargetString = Eval_GetParameter(Parameters, VALUE_STRING, 0)->StringValue;
+	String* TargetString = GetListIndex(Parameters, VALUE_TYPE_STRING, 0)->StringValue;
 
-	return Value_New(VALUE_INTEGER, TargetString->Length);
+	return NewValue(VALUE_TYPE_INTEGER, TargetString->Length);
 }
 
 EVAL_FUNCTION Value* Eval_StringSplit(Value* Parameters) {
-	String* TargetString = Eval_GetParameter(Parameters, VALUE_STRING, 0)->StringValue;
+	String* TargetString = GetListIndex(Parameters, VALUE_TYPE_STRING, 0)->StringValue;
 
-	List* ResultList = List_New(TargetString->Length);
+	List* ResultList = NewList(TargetString->Length);
 
 	for (int Index = 0; Index < TargetString->Length; Index++) {
-		ResultList->Values[Index] = Value_New(VALUE_STRING, String_New(&TargetString->Buffer[Index], 1));
+		ResultList->Values[Index] = NewValue(VALUE_TYPE_STRING, MakeString(&TargetString->Buffer[Index], 1));
 	}
 
-	return Value_New(VALUE_LIST, ResultList);
+	return NewValue(VALUE_TYPE_LIST, ResultList);
 }
 
 int Value_Equals(Value* Left, Value* Right) {
@@ -216,14 +216,14 @@ int Value_Equals(Value* Left, Value* Right) {
 	}
 
 	switch (Left->Type) {
-		case VALUE_BOOL:
-		case VALUE_FUNCTION:
-		case VALUE_CHILD:
-		case VALUE_INTEGER:
+		case VALUE_TYPE_BOOL:
+		case VALUE_TYPE_FUNCTION:
+		case VALUE_TYPE_CHILD:
+		case VALUE_TYPE_INTEGER:
 			return Left->IntegerValue == Right->IntegerValue;
-		case VALUE_NIL:
+		case VALUE_TYPE_NIL:
 			return 1;
-		case VALUE_LIST:
+		case VALUE_TYPE_LIST:
 			if (Left->ListValue->Length != Right->ListValue->Length) {
 				return 0;
 			}
@@ -235,14 +235,14 @@ int Value_Equals(Value* Left, Value* Right) {
 			}
 
 			return 1;
-		case VALUE_IDENTIFIER:
-		case VALUE_STRING:
+		case VALUE_TYPE_IDENTIFIER:
+		case VALUE_TYPE_STRING:
 			if (Left->StringValue->Length != Right->StringValue->Length) {
 				return 0;
 			}
 
 			return !strncmp(Left->StringValue->Buffer, Right->StringValue->Buffer, Left->StringValue->Length);
-		case VALUE_ANY:
+		case VALUE_TYPE_ANY:
 			break;
 	}
 
@@ -250,10 +250,10 @@ int Value_Equals(Value* Left, Value* Right) {
 }
 
 EVAL_FUNCTION Value* Eval_Equals(Value* Parameters) {
-	Value* FirstValue = Eval_GetParameter(Parameters, VALUE_ANY, 0);
+	Value* FirstValue = GetListIndex(Parameters, VALUE_TYPE_ANY, 0);
 
 // Ensure we've got at least two parameters
-	Eval_GetParameter(Parameters, VALUE_ANY, 1);
+	GetListIndex(Parameters, VALUE_TYPE_ANY, 1);
 
 	int ResultValue = 1;
 
@@ -266,49 +266,49 @@ EVAL_FUNCTION Value* Eval_Equals(Value* Parameters) {
 		}
 	}
 
-	return Value_New(VALUE_BOOL, ResultValue);
+	return NewValue(VALUE_TYPE_BOOL, ResultValue);
 }
 
 EVAL_FUNCTION Value* Eval_CreateProcess(Value* Parameters) {
-	String* Path = Eval_GetParameter(Parameters, VALUE_STRING, 0)->StringValue;
+	String* Path = GetListIndex(Parameters, VALUE_TYPE_STRING, 0)->StringValue;
 
 	char* Arguments[2] = {Path->Buffer, 0};
 
-	return Value_New(VALUE_CHILD, ChildProcess_New(Path->Buffer, Arguments));
+	return NewValue(VALUE_TYPE_CHILD, NewChildProcess(Path->Buffer, Arguments));
 }
 
 EVAL_FUNCTION Value* Eval_ReadProcessOutput(Value* Parameters) {
-	ChildProcess* Child = Eval_GetParameter(Parameters, VALUE_CHILD, 0)->ChildValue;
+	ChildProcess* Child = GetListIndex(Parameters, VALUE_TYPE_CHILD, 0)->ChildValue;
 
 	size_t OutputSize = 0;
-	char* Output = ChildProcess_ReadStream(Child, STDOUT_FILENO, &OutputSize);
+	char* Output = ReadFromChildProcessStream(Child, STDOUT_FILENO, &OutputSize);
 
-	return Value_New(VALUE_STRING, String_Adopt(Output, OutputSize));
+	return NewValue(VALUE_TYPE_STRING, AdoptString(Output, OutputSize));
 }
 
 EVAL_FUNCTION Value* Eval_GetReferenceCount(Value* Parameters) {
-	Value* Parameter = Eval_GetParameter(Parameters, VALUE_ANY, 0);
+	Value* Parameter = GetListIndex(Parameters, VALUE_TYPE_ANY, 0);
 
-	return Value_New(VALUE_INTEGER, Parameter->ReferenceCount);
+	return NewValue(VALUE_TYPE_INTEGER, Parameter->ReferenceCount);
 }
 
 EVAL_FUNCTION Value* Eval_Eval(Value* Parameters) {
-	Value* AST = Eval_GetParameterReference(Parameters, VALUE_ANY, 0);
+	Value* AST = GetReferenceToListIndex(Parameters, VALUE_TYPE_ANY, 0);
 
-	Environment* Env = Eval_Setup();
+	Environment* Env = SetupEnvironment();
 
-	Value* Result = Eval_Apply(Env, AST);
+	Value* Result = Evaluate(Env, AST);
 
-	Environment_ReleaseAndFree(Env);
+	DestroyEnvironment(Env);
 
 	return Result;
 }
 EVAL_FUNCTION Value* Eval_Parse(Value* Parameters) {
-	Value* Input = Eval_GetParameter(Parameters, VALUE_STRING, 0);
+	Value* Input = GetListIndex(Parameters, VALUE_TYPE_STRING, 0);
 
 	char* ClonedInput = strndup(Input->StringValue->Buffer, Input->StringValue->Length);
 
-	Tokenizer* InputTokenizer = Tokenizer_New("*", ClonedInput, Input->StringValue->Length);
+	Tokenizer* InputTokenizer = NewTokenizer("*", ClonedInput, Input->StringValue->Length);
 
 	Value* Tree = ReadForm(InputTokenizer);
 
@@ -316,7 +316,7 @@ EVAL_FUNCTION Value* Eval_Parse(Value* Parameters) {
 }
 
 EVAL_FUNCTION Value* Eval_Slurp(Value* Parameters) {
-	Value* FileNameValue = Eval_GetParameter(Parameters, VALUE_STRING, 0);
+	Value* FileNameValue = GetListIndex(Parameters, VALUE_TYPE_STRING, 0);
 	String* FileName = FileNameValue->StringValue;
 
 	FILE* FileDescriptor = fopen(FileName->Buffer, "r");
@@ -340,22 +340,22 @@ EVAL_FUNCTION Value* Eval_Slurp(Value* Parameters) {
 
 	fread(Buffer, 1, Length, FileDescriptor);
 
-	return Value_New(VALUE_STRING, String_Adopt(Buffer, strlen(Buffer)));
+	return NewValue(VALUE_TYPE_STRING, AdoptString(Buffer, strlen(Buffer)));
 }
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "bugprone-sizeof-expression"
 
-Environment* Eval_Setup() {
-	SymbolMap* Symbols = SymbolMap_New();
+Environment* SetupEnvironment() {
+	SymbolMap* Symbols = NewSymbolMap();
 
 #define AddSymbolFunction(Name, LispName)      \
 do {                                     \
 Function* RawFunction = alloc(sizeof(Function));   \
 RawFunction->IsNativeFunction = 1;                 \
 RawFunction->NativeValue = Eval_ ## Name;      \
-Value* FunctionValue = Value_New(VALUE_FUNCTION, RawFunction);    \
-SymbolMap_Set(Symbols, #LispName, strlen(#LispName), FunctionValue);} while (0)
+Value* FunctionValue = NewValue(VALUE_TYPE_FUNCTION, RawFunction); \
+SetSymbolMapEntry(Symbols, #LispName, strlen(#LispName), FunctionValue);} while (0)
 
 	AddSymbolFunction(Add, +);
 	AddSymbolFunction(Sub, -);

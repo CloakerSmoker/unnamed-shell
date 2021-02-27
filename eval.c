@@ -11,7 +11,7 @@ int Hash(const char* String, int Length) {
 	return Hash;
 }
 
-SymbolMap* SymbolMap_New() {
+SymbolMap* NewSymbolMap() {
 	SymbolMap* this = alloc(sizeof(SymbolMap));
 
 	this->ElementCapacity = 100;
@@ -20,12 +20,12 @@ SymbolMap* SymbolMap_New() {
 	return this;
 }
 
-unsigned int SymbolMap_GetElementIndex(SymbolMap* this, int Hash) {
+unsigned int GetSymbolMapElementIndex(SymbolMap* this, int Hash) {
 	return Hash % this->ElementCapacity;
 }
 
-SymbolEntry* SymbolMap_FindElement(SymbolMap* this, int Hash) {
-	unsigned int Index = SymbolMap_GetElementIndex(this, Hash);
+SymbolEntry* FindSymbolMapElement(SymbolMap* this, int Hash) {
+	unsigned int Index = GetSymbolMapElementIndex(this, Hash);
 
 	SymbolEntry* Element = this->Elements[Index];
 
@@ -44,8 +44,8 @@ SymbolEntry* SymbolMap_FindElement(SymbolMap* this, int Hash) {
 	return Element;
 }
 
-SymbolEntry* SymbolMap_GetElement(SymbolMap* this, int Hash) {
-	SymbolEntry* Result = SymbolMap_FindElement(this, Hash);
+SymbolEntry* GetSymbolMapElement(SymbolMap* this, int Hash) {
+	SymbolEntry* Result = FindSymbolMapElement(this, Hash);
 
 	if (Result && Result->Hash == Hash) {
 		return Result;
@@ -54,10 +54,10 @@ SymbolEntry* SymbolMap_GetElement(SymbolMap* this, int Hash) {
 	return NULL;
 }
 
-void SymbolMap_Upsert(SymbolMap* this, int Hash, void* Value) {
-	unsigned int Index = SymbolMap_GetElementIndex(this, Hash);
+void UpsertSymbolMapEntry(SymbolMap* this, int Hash, void* Value) {
+	unsigned int Index = GetSymbolMapElementIndex(this, Hash);
 
-	SymbolEntry* Element = SymbolMap_FindElement(this, Hash);
+	SymbolEntry* Element = FindSymbolMapElement(this, Hash);
 	SymbolEntry* NewElement = NULL;
 
 	if (Element == NULL) {
@@ -79,24 +79,24 @@ void SymbolMap_Upsert(SymbolMap* this, int Hash, void* Value) {
 	NewElement->Value = Value;
 }
 
-SymbolEntry* SymbolMap_Get(SymbolMap* this, char* Key, size_t KeyLength) {
-	return SymbolMap_GetElement(this, Hash(Key, KeyLength));
+SymbolEntry* GetSymbolMapEntry(SymbolMap* this, char* Key, size_t KeyLength) {
+	return GetSymbolMapElement(this, Hash(Key, KeyLength));
 }
-void SymbolMap_Set(SymbolMap* this, char* Key, size_t KeyLength, void* Value) {
-	return SymbolMap_Upsert(this, Hash(Key, KeyLength), Value);
+void SetSymbolMapEntry(SymbolMap* this, char* Key, size_t KeyLength, void* Value) {
+	return UpsertSymbolMapEntry(this, Hash(Key, KeyLength), Value);
 }
 
-SymbolEntry* Environment_Get(Environment* this, String* SymbolName) {
+SymbolEntry* GetEnvironmentEntry(Environment* this, String* SymbolName) {
 	Environment* Next = this;
 
 	while (Next) {
-		SymbolEntry* Result = SymbolMap_Get(Next->Symbols, SymbolName->Buffer, SymbolName->Length);
+		SymbolEntry* Result = GetSymbolMapEntry(Next->Symbols, SymbolName->Buffer, SymbolName->Length);
 
 		if (Result) {
 #if DEBUG_SYMBOLS
 			EVAL_DEBUG_PRINT_PREFIX
 			printf("Get symbol ");
-			String_Print(SymbolName);
+			PrintString(SymbolName);
 			printf(" = '");
 			Value_Print(Result->Value);
 			printf("'\n");
@@ -111,138 +111,135 @@ SymbolEntry* Environment_Get(Environment* this, String* SymbolName) {
 #if DEBUG_SYMBOLS
 	EVAL_DEBUG_PRINT_PREFIX
 	printf("Get symbol ");
-	String_Print(SymbolName);
+	PrintString(SymbolName);
 	printf(" = not found\n");
 #endif
 
 	return NULL;
 }
 
-Environment* Environment_Find(Environment* this, String* SymbolName) {
-	SymbolEntry* Result = SymbolMap_Get(this->Symbols, SymbolName->Buffer, SymbolName->Length);
+Environment* FindEnvironmentEntry(Environment* this, String* SymbolName) {
+	SymbolEntry* Result = GetSymbolMapEntry(this->Symbols, SymbolName->Buffer, SymbolName->Length);
 
 	if (Result) {
 		return this;
 	}
 
 	if (this->Outer) {
-		return Environment_Find(this->Outer, SymbolName);
+		return FindEnvironmentEntry(this->Outer, SymbolName);
 	}
 
 	return NULL;
 }
 
-void Environment_Set(Environment* this, String* SymbolName, Value* Value) {
-	Value_AddReference(Value);
+void SetEnvironmentEntry(Environment* this, String* SymbolName, Value* Value) {
+	AddReferenceToValue(Value);
 
 #if DEBUG_SYMBOLS
 	EVAL_DEBUG_PRINT_PREFIX
 	printf("Set symbol ");
-	String_Print(SymbolName);
+	PrintString(SymbolName);
 	printf(" = '");
 	Value_Print(Value);
 	printf("'\n");
 #endif
 
-	Environment* ExistingEnvironment = Environment_Find(this, SymbolName);
+	Environment* ExistingEnvironment = FindEnvironmentEntry(this, SymbolName);
 
 	if (ExistingEnvironment != NULL) {
-		SymbolMap_Set(ExistingEnvironment->Symbols, SymbolName->Buffer, SymbolName->Length, Value);
+		SetSymbolMapEntry(ExistingEnvironment->Symbols, SymbolName->Buffer, SymbolName->Length, Value);
 	}
 	else {
-		SymbolMap_Set(this->Symbols, SymbolName->Buffer, SymbolName->Length, Value);
+		SetSymbolMapEntry(this->Symbols, SymbolName->Buffer, SymbolName->Length, Value);
 	}
 }
 
-Environment* Environment_New(Environment* Outer) {
+Environment* NewEnvironment(Environment* Outer) {
 	Environment* Result = alloc(sizeof(Environment));
 
-	Result->Symbols = SymbolMap_New();
+	Result->Symbols = NewSymbolMap();
 	Result->Outer = Outer;
 
 	return Result;
 }
-Environment* Environment_New_Bindings(Environment* Outer, Value* BindingNames, Value* BindingValues) {
-	Environment* Result = Environment_New(Outer);
+Environment* NewEnvironmentWithBindings(Environment* Outer, Value* BindingNames, Value* BindingValues) {
+	Environment* Result = NewEnvironment(Outer);
 
 	for (int Index = 0; Index < BindingNames->ListValue->Length; Index++) {
-		Value* BindingName = Eval_GetParameterRaw(BindingNames, VALUE_IDENTIFIER, Index);
-		Value* BindingValue = Eval_GetParameterRaw(BindingValues, VALUE_ANY, Index + 1);
+		Value* BindingName = RawGetListIndex(BindingNames, VALUE_TYPE_IDENTIFIER, Index);
+		Value* BindingValue = RawGetListIndex(BindingValues, VALUE_TYPE_ANY, Index + 1);
 
-		Environment_Set(Result, BindingName->IdentifierValue, BindingValue);
+		SetEnvironmentEntry(Result, BindingName->IdentifierValue, BindingValue);
 	}
 
 	return Result;
 }
-void Environment_ReleaseAndFree(Environment* this) {
-	SymbolEntry** Symbols = this->Symbols->Elements;
-	size_t SymbolCapacity = this->Symbols->ElementCapacity;
+
+void ReleaseEnvironmentEntries(Environment* Target) {
+	SymbolEntry** Symbols = Target->Symbols->Elements;
+	size_t SymbolCapacity = Target->Symbols->ElementCapacity;
 
 	for (int Index = 0; Index < SymbolCapacity; Index++) {
 		SymbolEntry* NextSymbol = Symbols[Index];
 
 		while (NextSymbol != NULL) {
-			Value_Release(NextSymbol->Value);
+			ReleaseReferenceToValue(NextSymbol->Value);
 
 			SymbolEntry* LastSymbol = NextSymbol;
 			NextSymbol = NextSymbol->Next;
 			free(LastSymbol);
 		}
 	}
-
-	free(this->Symbols);
-	free(this);
+}
+void FreeEnvironment(Environment* Target) {
+	free(Target->Symbols);
+	free(Target);
+}
+void DestroyEnvironment(Environment* Target) {
+	ReleaseEnvironmentEntries(Target);
+	FreeEnvironment(Target);
 }
 
-char* Eval_GetTypeName(ValueType Type) {
+char* GetValueTypeName(ValueType Type) {
 	switch (Type) {
-		case VALUE_INTEGER: return "integer";
-		case VALUE_STRING: return "string";
-		case VALUE_IDENTIFIER: return "identifier";
-		case VALUE_FUNCTION: return "function";
-		case VALUE_LIST: return "list";
-		case VALUE_BOOL: return "bool";
-		case VALUE_NIL: return "nil";
-		case VALUE_CHILD: return "process";
-		case VALUE_ANY: return "any";
+		case VALUE_TYPE_INTEGER: return "integer";
+		case VALUE_TYPE_STRING: return "string";
+		case VALUE_TYPE_IDENTIFIER: return "identifier";
+		case VALUE_TYPE_FUNCTION: return "function";
+		case VALUE_TYPE_LIST: return "list";
+		case VALUE_TYPE_BOOL: return "bool";
+		case VALUE_TYPE_NIL: return "nil";
+		case VALUE_TYPE_CHILD: return "process";
+		case VALUE_TYPE_ANY: return "any";
 		default: return "none";
 	}
 }
-
-void Eval_TypeError(Value* Blame, ValueType ExpectedType) {
+void RaiseTypeError(Value* Blame, ValueType ExpectedType) {
 	char MessageBuffer[100] = {0};
 
-	snprintf(MessageBuffer, 100, "Wrong types, expected %s, got %s", Eval_GetTypeName(ExpectedType), Eval_GetTypeName(Blame->Type));
+	snprintf(MessageBuffer, 100, "Wrong types, expected %s, got %s", GetValueTypeName(ExpectedType),
+	         GetValueTypeName(Blame->Type));
 
 	Error(Blame, MessageBuffer);
 	longjmp(OnError, 0);
 }
 
-Value* Eval_GetParameterRaw(Value* ParameterList, ValueType ExpectedType, int Index) {
-	if (ParameterList->ListValue->Length <= Index) {
-		Error(ParameterList, "Not enough parameters");
+Value* RawGetListIndex(Value* Target, ValueType ExpectedType, int Index) {
+	if (Target->ListValue->Length <= Index) {
+		Error(Target, "Not enough parameters");
 		longjmp(OnError, 0);
 	}
 
-	Value* ParameterValue = ParameterList->ListValue->Values[Index];
+	Value* ParameterValue = Target->ListValue->Values[Index];
 
-	if (ParameterValue->Type != ExpectedType && ExpectedType != VALUE_ANY) {
-		Eval_TypeError(ParameterValue, ExpectedType);
+	if (ParameterValue->Type != ExpectedType && ExpectedType != VALUE_TYPE_ANY) {
+		RaiseTypeError(ParameterValue, ExpectedType);
 	}
 
 	return ParameterValue;
 }
 
-Value* Eval_CallFunction(unused Environment* this, Value* Call) {
-	Value* FunctionNode = Call->ListValue->Values[0];
-
-	if (FunctionNode->Type != VALUE_FUNCTION) {
-		Error(FunctionNode, "Is not a valid function");
-		longjmp(OnError, 0);
-	}
-
-	Function* TargetFunction = FunctionNode->FunctionValue;
-
+Value* RawEvaluateFunctionCall(unused Environment* this, Function* TargetFunction, Value* Call) {
 	Value* Result = NULL;
 
 	if (TargetFunction->IsNativeFunction) {
@@ -256,21 +253,34 @@ Value* Eval_CallFunction(unused Environment* this, Value* Call) {
 			longjmp(OnError, 0);
 		}
 
-		Environment* Closure = Environment_New_Bindings(TargetFunction->Environment, TargetFunction->ParameterBindings, Call);
+		Environment* Closure = NewEnvironmentWithBindings(TargetFunction->Environment,
+		                                                  TargetFunction->ParameterBindings, Call);
 
-		Result = Eval_Apply(Closure, Value_AddReference(TargetFunction->Body));
+		Result = Evaluate(Closure, AddReferenceToValue(TargetFunction->Body));
 
-		Environment_ReleaseAndFree(Closure);
+		DestroyEnvironment(Closure);
 	}
 
-	Value_Release(Call);
+	ReleaseReferenceToValue(Call);
 
 	return Result;
 }
+Value* EvaluateFunctionCall(Environment* this, Value* Call) {
+	Value* FunctionNode = Call->ListValue->Values[0];
 
-Value* Eval_AST(Environment* this, Value* Target) {
+	if (FunctionNode->Type != VALUE_TYPE_FUNCTION) {
+		Error(FunctionNode, "Is not a valid function");
+		longjmp(OnError, 0);
+	}
+
+	Function* TargetFunction = FunctionNode->FunctionValue;
+
+	return RawEvaluateFunctionCall(this, TargetFunction, Call);
+}
+
+Value* EvaluateAST(Environment* this, Value* Target) {
 #if DEBUG_EVAL
-	EVAL_DEBUG_PRINT_PREFIX printf("Eval_AST %i '", Target->ID);
+	EVAL_DEBUG_PRINT_PREFIX printf("EvaluateAST %i '", Target->ID);
 	Value_Print(Target);
 	printf("' {\n");
 
@@ -280,13 +290,13 @@ Value* Eval_AST(Environment* this, Value* Target) {
 	Value* Result;
 
 	switch (Target->Type) {
-		case VALUE_IDENTIFIER: {
+		case VALUE_TYPE_IDENTIFIER: {
 			String* IdentifierText = Target->IdentifierValue;
 
-			SymbolEntry* Symbol = Environment_Get(this, IdentifierText);
+			SymbolEntry* Symbol = GetEnvironmentEntry(this, IdentifierText);
 
 			if (Symbol != NULL) {
-				Result = Value_AddReference(Symbol->Value);
+				Result = AddReferenceToValue(Symbol->Value);
 			}
 			else {
 				Error(Target, "Undefined symbol");
@@ -295,21 +305,21 @@ Value* Eval_AST(Environment* this, Value* Target) {
 
 			break;
 		}
-		case VALUE_LIST: {
-			List* ResultList = List_New(Target->ListValue->Length);
+		case VALUE_TYPE_LIST: {
+			List* ResultList = NewList(Target->ListValue->Length);
 
 			for (int Index = 0; Index < Target->ListValue->Length; Index++) {
-				Value* NextValue = Value_AddReference(Target->ListValue->Values[Index]);
+				Value* NextValue = AddReferenceToValue(Target->ListValue->Values[Index]);
 
-				ResultList->Values[Index] = Eval_Apply(this, NextValue);
+				ResultList->Values[Index] = Evaluate(this, NextValue);
 			}
 
-			Result = Value_New(VALUE_LIST, ResultList);
+			Result = NewValue(VALUE_TYPE_LIST, ResultList);
 
 			break;
 		}
 		default:
-			Result = Value_Clone(Target);
+			Result = CloneValue(Target);
 
 			break;
 	}
@@ -327,66 +337,69 @@ Value* Eval_AST(Environment* this, Value* Target) {
 	return Result;
 }
 
-Value* Eval_ToBool(Value* Target) {
+Value* ConvertToBooleanValue(Value* Target) {
 	char BoolValue = 1;
 
-	if (Target->Type == VALUE_NIL || Target->Type == VALUE_INTEGER && Target->IntegerValue == 0) {
+	if (Target->Type == VALUE_TYPE_NIL || Target->Type == VALUE_TYPE_INTEGER && Target->IntegerValue == 0) {
 		BoolValue = 0;
 	}
-	else if (Target->Type == VALUE_BOOL) {
+	else if (Target->Type == VALUE_TYPE_BOOL) {
 		BoolValue = Target->BoolValue;
 	}
 
-	Value_Release(Target);
+	ReleaseReferenceToValue(Target);
 
-	return Value_New(VALUE_BOOL, BoolValue);
+	return NewValue(VALUE_TYPE_BOOL, BoolValue);
 }
 
-Value* Eval_Quote(Environment* this, Value* Target, int IsQuasiQuote) {
-	if (Target->Type == VALUE_LIST && Target->ListValue->Length != 0) {
+Value* QuoteValue(Environment* this, Value* Target, int IsQuasiQuote) {
+	if (Target->Type == VALUE_TYPE_LIST && Target->ListValue->Length != 0) {
 		Value* FirstValue = Target->ListValue->Values[0];
 
-		if (FirstValue->Type == VALUE_IDENTIFIER && IsQuasiQuote) {
+		if (FirstValue->Type == VALUE_TYPE_IDENTIFIER && IsQuasiQuote) {
 			String* Name = FirstValue->IdentifierValue;
 
 			if (!strncmp(Name->Buffer, "unquote", Name->Length)) {
-				Value* UnquoteValue = Eval_GetParameterReference(Target, VALUE_ANY, 0);
+				Value* UnquoteValue = GetReferenceToListIndex(Target, VALUE_TYPE_ANY, 0);
 
-				return Eval_Apply(this, UnquoteValue);
+				return Evaluate(this, UnquoteValue);
 			}
 		}
 
-		List* ResultList = List_New(Target->ListValue->Length);
+		List* ResultList = NewList(Target->ListValue->Length);
 		int ResultListIndex = 0;
 
 		for (int Index = 0; Index < Target->ListValue->Length; Index++) {
 			Value* ListElement = Target->ListValue->Values[Index];
 
-			if (ListElement->Type == VALUE_LIST && ListElement->ListValue->Length != 0) {
+			if (ListElement->Type == VALUE_TYPE_LIST && ListElement->ListValue->Length != 0) {
 				FirstValue = ListElement->ListValue->Values[0];
 
-				if (FirstValue->Type == VALUE_IDENTIFIER && IsQuasiQuote) {
+				if (FirstValue->Type == VALUE_TYPE_IDENTIFIER && IsQuasiQuote) {
 					String* Name = FirstValue->IdentifierValue;
 
 					if (!strncmp(Name->Buffer, "splice-unquote", Name->Length)) {
 						ResultList->Length--; // Exclude `"splice-unquote"` from the list length
 
-						Value* RawUnquoteValue = Eval_GetParameterReference(ListElement, VALUE_ANY, 0);
+						Value* RawUnquoteValue = GetReferenceToListIndex(ListElement, VALUE_TYPE_ANY, 0);
 
-						Value* UnquoteValue = Eval_Apply(this, RawUnquoteValue);
+						Value* UnquoteValue = Evaluate(this, RawUnquoteValue);
 
-						if (UnquoteValue->Type != VALUE_LIST) {
-							Eval_TypeError(UnquoteValue, VALUE_LIST);
+						if (UnquoteValue->Type == VALUE_TYPE_LIST) {
+							List* SpliceList = UnquoteValue->ListValue;
+
+							ExtendList(ResultList, SpliceList->Length);
+
+							for (int SpliceIndex = 0; SpliceIndex < SpliceList->Length; SpliceIndex++) {
+								Value* NextSpliceValue = AddReferenceToValue(SpliceList->Values[SpliceIndex]);
+
+								ResultList->Values[ResultListIndex++] = NextSpliceValue;
+							}
 						}
+						else {
+							ExtendList(ResultList, 1);
 
-						List* SpliceList = UnquoteValue->ListValue;
-
-						List_Extend(ResultList, SpliceList->Length);
-
-						for (int SpliceIndex = 0; SpliceIndex < SpliceList->Length; SpliceIndex++) {
-							Value* NextSpliceValue = Value_AddReference(SpliceList->Values[SpliceIndex]);
-
-							ResultList->Values[ResultListIndex++] = NextSpliceValue;
+							ResultList->Values[ResultListIndex++] = AddReferenceToValue(UnquoteValue);
 						}
 
 						continue;
@@ -394,19 +407,58 @@ Value* Eval_Quote(Environment* this, Value* Target, int IsQuasiQuote) {
 				}
 			}
 
-			ResultList->Values[ResultListIndex++] = Eval_Quote(this, ListElement, IsQuasiQuote);
+			ResultList->Values[ResultListIndex++] = QuoteValue(this, ListElement, IsQuasiQuote);
 		}
 
-		return Value_New(VALUE_LIST, ResultList);
+		Value* Result = NewValue(VALUE_TYPE_LIST, ResultList);
+
+		CloneContext(Result, Target);
+
+		return Result;
 	}
 	else {
-		return Value_Clone(Target);
+		return CloneValue(Target);
 	}
 }
 
-Value* Eval_Apply(Environment* this, Value* Target) {
+char IsMacroCall(Environment* this, Value* Target, Function** OutFunction) {
+	if (Target->Type == VALUE_TYPE_LIST) {
+		if (Target->ListValue->Length >= 1) {
+			Value* FirstValue = Target->ListValue->Values[0];
+
+			if (FirstValue->Type == VALUE_TYPE_IDENTIFIER) {
+				SymbolEntry* FoundMacroEntry = GetEnvironmentEntry(this, FirstValue->IdentifierValue);
+
+				if (FoundMacroEntry != NULL) {
+					Value* FoundMacro = FoundMacroEntry->Value;
+
+					if (FoundMacro->Type == VALUE_TYPE_FUNCTION && FoundMacro->FunctionValue->IsMacro) {
+						*OutFunction = FoundMacro->FunctionValue;
+						return 1;
+					}
+				}
+			}
+		}
+	}
+
+	return 0;
+}
+Value* ExpandMacro(Environment* this, Value* OriginalTarget) {
+	Value* Target = OriginalTarget;
+	Function* NextMacro = NULL;
+
+	while (IsMacroCall(this, Target, &NextMacro)) {
+		Target = RawEvaluateFunctionCall(this, NextMacro, Target);
+
+		CloneContext(Target, OriginalTarget);
+	}
+
+	return Target;
+}
+
+Value* Evaluate(Environment* this, Value* Target) {
 #if DEBUG_EVAL
-	EVAL_DEBUG_PRINT_PREFIX printf("Eval_Apply %i '", Target->ID);
+	EVAL_DEBUG_PRINT_PREFIX printf("Evaluate %i '", Target->ID);
 	Value_Print(Target);
 	printf("' {\n");
 
@@ -416,32 +468,67 @@ Value* Eval_Apply(Environment* this, Value* Target) {
 	Value* Result = Target;
 
 	switch (Target->Type) {
-		case VALUE_LIST: {
+		case VALUE_TYPE_LIST: {
 			if (Target->ListValue->Length >= 1) {
+				Target = ExpandMacro(this, Target);
+
+				if (Target->Type != VALUE_TYPE_LIST) {
+					Result = EvaluateAST(this, Target);
+					break;
+				}
+
 				Value* NameValue = Target->ListValue->Values[0];
 
-				if (NameValue->Type == VALUE_IDENTIFIER) {
+				if (NameValue->Type == VALUE_TYPE_IDENTIFIER) {
 					String* Name = NameValue->IdentifierValue;
 
-					if (!strncmp(Name->Buffer, "def!", Name->Length)) {
-						Value* DefKey = Eval_GetParameter(Target, VALUE_IDENTIFIER, 0);
-						Value* DefValue = Eval_GetParameter(Target, VALUE_ANY, 1);
+					if (!strncmp(Name->Buffer, "expand", Name->Length)) {
+						Value* Macro = GetListIndex(Target, VALUE_TYPE_ANY, 0);
 
-						SymbolEntry* Symbol = Environment_Get(this, DefKey->IdentifierValue);
+						Result = ExpandMacro(this, Macro);
 
-						Result = Eval_Apply(this, Value_AddReference(DefValue));
+						break;
+					}
+					else if (!strncmp(Name->Buffer, "def!", Name->Length)) {
+						Value* Key = GetListIndex(Target, VALUE_TYPE_IDENTIFIER, 0);
+						Value* Value = GetListIndex(Target, VALUE_TYPE_ANY, 1);
+
+						SymbolEntry* Symbol = GetEnvironmentEntry(this, Key->IdentifierValue);
+
+						Result = Evaluate(this, AddReferenceToValue(Value));
 
 						if (Symbol != NULL) {
-							Value_Release(Symbol->Value);
+							ReleaseReferenceToValue(Symbol->Value);
 						}
 
-						Environment_Set(this, DefKey->IdentifierValue, Result);
+						SetEnvironmentEntry(this, Key->IdentifierValue, Result);
+
+						break;
+					}
+					if (!strncmp(Name->Buffer, "macro!", Name->Length)) {
+						Value* Key = GetListIndex(Target, VALUE_TYPE_IDENTIFIER, 0);
+						Value* Value = GetListIndex(Target, VALUE_TYPE_ANY, 1);
+
+						SymbolEntry* Symbol = GetEnvironmentEntry(this, Key->IdentifierValue);
+
+						Result = Evaluate(this, AddReferenceToValue(Value));
+
+						if (Result->Type != VALUE_TYPE_FUNCTION) {
+							RaiseTypeError(Result, VALUE_TYPE_FUNCTION);
+						}
+
+						if (Symbol != NULL) {
+							ReleaseReferenceToValue(Symbol->Value);
+						}
+
+						Result->FunctionValue->IsMacro = 1;
+						SetEnvironmentEntry(this, Key->IdentifierValue, Result);
 
 						break;
 					}
 					else if (!strncmp(Name->Buffer, "let*", Name->Length)) {
-						Value* BindingsList = Eval_GetParameter(Target, VALUE_LIST, 0);
-						Value* LetBody = Eval_GetParameter(Target, VALUE_ANY, 1);
+						Value* BindingsList = GetListIndex(Target, VALUE_TYPE_LIST, 0);
+						Value* LetBody = GetListIndex(Target, VALUE_TYPE_ANY, 1);
 
 						size_t BindingCount = BindingsList->ListValue->Length;
 
@@ -453,61 +540,61 @@ Value* Eval_Apply(Environment* this, Value* Target) {
 
 						BindingCount /= 2;
 
-						Environment* NewEnvironment = Environment_New(this);
+						Environment* LetEnvironment = NewEnvironment(this);
 
 						for (int PairIndex = 0; PairIndex < BindingCount; PairIndex++) {
 							int ValueIndex = PairIndex * 2;
 
-							Value* BindingName = Eval_GetParameterReferenceRaw(BindingsList, VALUE_IDENTIFIER,
-							                                                   ValueIndex);
-							Value* BindingValue = Eval_GetParameterReferenceRaw(BindingsList, VALUE_ANY,
+							Value* BindingName = RawGetReferenceToListIndex(BindingsList, VALUE_TYPE_IDENTIFIER,
+							                                                ValueIndex);
+							Value* BindingValue = RawGetReferenceToListIndex(BindingsList, VALUE_TYPE_ANY,
 							                                                    ValueIndex + 1);
 
-							Value* NewBindingValue = Eval_Apply(NewEnvironment, Value_AddReference(BindingValue));
+							Value* NewBindingValue = Evaluate(LetEnvironment, AddReferenceToValue(BindingValue));
 
-							Environment_Set(NewEnvironment, BindingName->IdentifierValue, NewBindingValue);
+							SetEnvironmentEntry(LetEnvironment, BindingName->IdentifierValue, NewBindingValue);
 
-							Value_Release(BindingName);
-							Value_Release(BindingValue);
-							Value_Release(NewBindingValue);
+							ReleaseReferenceToValue(BindingName);
+							ReleaseReferenceToValue(BindingValue);
+							ReleaseReferenceToValue(NewBindingValue);
 						}
 
-						Result = Eval_Apply(NewEnvironment, Value_AddReference(LetBody));
+						Result = Evaluate(LetEnvironment, AddReferenceToValue(LetBody));
 
-						Environment_ReleaseAndFree(NewEnvironment);
+						DestroyEnvironment(LetEnvironment);
 
 						break;
 					}
 					else if (!strncmp(Name->Buffer, "if", Name->Length)) {
-						Value* Condition = Eval_GetParameterReference(Target, VALUE_ANY, 0);
-						Value* TrueBranch = Eval_GetParameterReference(Target, VALUE_ANY, 1);
+						Value* Condition = GetReferenceToListIndex(Target, VALUE_TYPE_ANY, 0);
+						Value* TrueBranch = GetReferenceToListIndex(Target, VALUE_TYPE_ANY, 1);
 						Value* FalseBranch = NULL;
 
 						if (Target->ListValue->Length == 4) {
-							FalseBranch = Eval_GetParameterReference(Target, VALUE_ANY, 2);
+							FalseBranch = GetReferenceToListIndex(Target, VALUE_TYPE_ANY, 2);
 						}
 
-						Value* ConditionResult = Eval_ToBool(Eval_Apply(this, Condition));
+						Value* ConditionResult = ConvertToBooleanValue(Evaluate(this, Condition));
 
 						if (ConditionResult->BoolValue == 1) {
-							Result = Eval_Apply(this, TrueBranch);
+							Result = Evaluate(this, TrueBranch);
 
 							if (FalseBranch != NULL) {
-								Value_Release(FalseBranch);
+								ReleaseReferenceToValue(FalseBranch);
 							}
 						}
 						else if (FalseBranch != NULL) {
-							Result = Eval_Apply(this, FalseBranch);
+							Result = Evaluate(this, FalseBranch);
 
-							Value_Release(TrueBranch);
+							ReleaseReferenceToValue(TrueBranch);
 						}
 						else {
-							Result = Value_Nil();
+							Result = NilValue();
 
-							Value_Release(TrueBranch);
+							ReleaseReferenceToValue(TrueBranch);
 						}
 
-						Value_Release(ConditionResult);
+						ReleaseReferenceToValue(ConditionResult);
 
 						break;
 					}
@@ -517,26 +604,26 @@ Value* Eval_Apply(Environment* this, Value* Target) {
 						for (int Index = 1; Index < Length - 1; Index++) {
 							Value* NextValue = Target->ListValue->Values[Index];
 
-							Value_Release(Eval_Apply(this, Value_AddReference(NextValue)));
+							ReleaseReferenceToValue(Evaluate(this, AddReferenceToValue(NextValue)));
 						}
 
 						if (Length == 1) {
-							Result = Value_Nil();
+							Result = NilValue();
 						}
 						else {
 							Value* LastValue = Target->ListValue->Values[Length - 1];
 
-							Result = Eval_Apply(this, Value_AddReference(LastValue));
+							Result = Evaluate(this, AddReferenceToValue(LastValue));
 						}
 
 						break;
 					}
 					else if (!strncmp(Name->Buffer, "fn*", Name->Length)) {
-						Value* BindingNames = Eval_GetParameterReference(Target, VALUE_LIST, 0);
-						Value* Body = Eval_GetParameterReference(Target, VALUE_ANY, 1);
+						Value* BindingNames = GetReferenceToListIndex(Target, VALUE_TYPE_LIST, 0);
+						Value* Body = GetReferenceToListIndex(Target, VALUE_TYPE_ANY, 1);
 
 						for (int Index = 0; Index < BindingNames->ListValue->Length; Index++) {
-							Eval_GetParameterRaw(BindingNames, VALUE_IDENTIFIER, Index);
+							RawGetListIndex(BindingNames, VALUE_TYPE_IDENTIFIER, Index);
 						}
 
 						Function* NewFunction = alloc(sizeof(Function));
@@ -545,7 +632,7 @@ Value* Eval_Apply(Environment* this, Value* Target) {
 						NewFunction->Body = Body;
 						NewFunction->Environment = this;
 
-						Value* NewFunctionValue = Value_New(VALUE_FUNCTION, NewFunction);
+						Value* NewFunctionValue = NewValue(VALUE_TYPE_FUNCTION, NewFunction);
 
 						CloneContext(NewFunctionValue, Target);
 
@@ -554,7 +641,7 @@ Value* Eval_Apply(Environment* this, Value* Target) {
 						break;
 					}
 					else if (!strncmp(Name->Buffer, "load!", Name->Length)) {
-						Value* FileNameValue = Eval_GetParameter(Target, VALUE_STRING, 0);
+						Value* FileNameValue = GetListIndex(Target, VALUE_TYPE_STRING, 0);
 						String* FileName = FileNameValue->StringValue;
 
 						FILE* FileDescriptor = fopen(FileName->Buffer, "r");
@@ -578,44 +665,44 @@ Value* Eval_Apply(Environment* this, Value* Target) {
 
 						fread(Buffer, 1, Length, FileDescriptor);
 
-						Tokenizer* FileTokenizer = Tokenizer_New(FileName->Buffer, Buffer, strlen(Buffer));
+						Tokenizer* FileTokenizer = NewTokenizer(FileName->Buffer, Buffer, strlen(Buffer));
 
 						Value* FileTree = ReadForm(FileTokenizer);
 
-						Result = Eval_Apply(this, FileTree);
+						Result = Evaluate(this, FileTree);
 
 						break;
 					}
 					else if (!strncmp(Name->Buffer, "quote", Name->Length)) {
-						Value* QuoteValue = Eval_GetParameter(Target, VALUE_ANY, 0);
+						Value* QuotedValue = GetListIndex(Target, VALUE_TYPE_ANY, 0);
 
-						Result = Eval_Quote(this, QuoteValue, 0);
+						Result = QuoteValue(this, QuotedValue, 0);
 
 						break;
 					}
 					else if (!strncmp(Name->Buffer, "quasiquote", Name->Length)) {
-						Value* QuoteValue = Eval_GetParameter(Target, VALUE_ANY, 0);
+						Value* QuotedValue = GetListIndex(Target, VALUE_TYPE_ANY, 0);
 
-						Result = Eval_Quote(this, QuoteValue, 1);
+						Result = QuoteValue(this, QuotedValue, 1);
 
 						break;
 					}
 				}
 			}
 
-			Value* Call = Eval_AST(this, Target);
+			Value* Call = EvaluateAST(this, Target);
 
 			if (Call->ListValue->Length >= 1) {
-				Result = Eval_CallFunction(this, Call);
+				Result = EvaluateFunctionCall(this, Call);
 			}
 
 			break;
 		}
 		default:
-			Result = Eval_AST(this, Target);
+			Result = EvaluateAST(this, Target);
 	}
 
-	Value_Release(Target);
+	ReleaseReferenceToValue(Target);
 
 #if DEBUG_EVAL
 	EVAL_DEBUG_EPILOG;

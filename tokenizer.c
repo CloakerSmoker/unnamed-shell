@@ -14,8 +14,8 @@ char IsSpecial(char Check) {
 	return 0;
 }
 
-Tokenizer *Tokenizer_New(char* SourceFilePath, char *Source, size_t SourceLength) {
-	Tokenizer *this = alloc(sizeof(Tokenizer));
+Tokenizer* NewTokenizer(char* SourceFilePath, char* Source, size_t SourceLength) {
+	Tokenizer* this = alloc(sizeof(Tokenizer));
 
 	this->SourceFilePath = SourceFilePath;
 	this->Source = Source;
@@ -23,30 +23,15 @@ Tokenizer *Tokenizer_New(char* SourceFilePath, char *Source, size_t SourceLength
 	this->LineNumber = 1;
 
 	this->TokenCapacity = 8;
-	this->Tokens = calloc(sizeof(Token *), this->TokenCapacity);
+	this->Tokens = alloc(this->TokenCapacity * sizeof(Token*));
 
 	return this;
 }
 
-unused void Tokenizer_Reset(Tokenizer* this, char* Source, size_t SourceLength) {
-	this->Source = Source;
-	this->SourceLength = SourceLength;
-	this->LineNumber = 1;
-
-	for (int Index = 0; Index < this->MaxTokenIndex; Index++) {
-		free(this->Tokens[Index]);
-
-		this->Tokens[Index] = NULL;
-	}
-
-	this->TokenIndex = 0;
-	this->MaxTokenIndex = 0;
-}
-
-Token *Tokenizer_AppendToken(Tokenizer *this, int Position, int Length, TokenType Type, void *Value) {
+Token* AppendToken(Tokenizer* this, int Position, int Length, TokenType Type, void* Value) {
 	if (this->MaxTokenIndex + 1 >= this->TokenCapacity) {
 		this->TokenCapacity += 300;
-		this->Tokens = realloc(this->Tokens, this->TokenCapacity * sizeof(Token *));
+		this->Tokens = realloc(this->Tokens, this->TokenCapacity * sizeof(Token*));
 	}
 
 	Token *NewToken = alloc(sizeof(Token));
@@ -64,19 +49,19 @@ Token *Tokenizer_AppendToken(Tokenizer *this, int Position, int Length, TokenTyp
 
 	return NewToken;
 }
-Token *Tokenizer_AppendToken_Int(Tokenizer* this, int Position, int Length, TokenType Type, int64_t Value) {
-	return Tokenizer_AppendToken(this, Position, Length, Type, (void*)Value);
+Token* AppendIntegerToken(Tokenizer* this, int Position, int Length, TokenType Type, int64_t Value) {
+	return AppendToken(this, Position, Length, Type, (void*)Value);
 }
 
-int Tokenizer_AtEnd(Tokenizer* this) {
+int IsTokenizerAtEnd(Tokenizer* this) {
 	return this->SourceIndex >= this->SourceLength;
 }
 
-char Tokenizer_PeekNextCharacter(Tokenizer *this) {
+char PeekNextCharacter(Tokenizer* this) {
 	return this->Source[this->SourceIndex];
 }
 
-char Tokenizer_GetNextCharacter(Tokenizer *this) {
+char GetNextCharacter(Tokenizer* this) {
 	char Result = this->Source[this->SourceIndex++];
 
 	if (Result == 0xA) {
@@ -86,7 +71,7 @@ char Tokenizer_GetNextCharacter(Tokenizer *this) {
 	return Result;
 }
 
-Token *Tokenizer_GetNextToken(Tokenizer *this) {
+Token* GetNextToken(Tokenizer* this) {
 	if (this->TokenIndex < this->MaxTokenIndex) {
 		return this->Tokens[this->TokenIndex++];
 	}
@@ -96,11 +81,11 @@ Token *Tokenizer_GetNextToken(Tokenizer *this) {
 	while (1) {
 		int TokenStartPosition = this->SourceIndex;
 
-		if (Tokenizer_AtEnd(this)) {
-			return Tokenizer_AppendToken(this, TokenStartPosition, 1, END, NULL);
+		if (IsTokenizerAtEnd(this)) {
+			return AppendToken(this, TokenStartPosition, 1, TOKEN_TYPE_EOF, NULL);
 		}
 
-		char FirstCharacter = Tokenizer_GetNextCharacter(this);
+		char FirstCharacter = GetNextCharacter(this);
 
 		if (isspace(FirstCharacter) || FirstCharacter == ',') {
 			continue;
@@ -109,32 +94,32 @@ Token *Tokenizer_GetNextToken(Tokenizer *this) {
 		if (FirstCharacter == ';') {
 			int CurrentLine = this->LineNumber;
 
-			while (this->LineNumber == CurrentLine && !Tokenizer_AtEnd(this)) {
-				Tokenizer_GetNextToken(this);
+			while (this->LineNumber == CurrentLine && !IsTokenizerAtEnd(this)) {
+				GetNextToken(this);
 			}
 
 			continue;
 		}
 
-#define CharacterToken(Character, Type, Value) case Character: return Tokenizer_AppendToken_Int(this, TokenStartPosition, 1, Type, Value)
+#define CharacterToken(Character, Type, Value) case Character: return AppendIntegerToken(this, TokenStartPosition, 1, Type, Value)
 
 		switch (FirstCharacter) {
-			CharacterToken('(', PUNCTUATION, OPEN_PAREN);
-			CharacterToken(')', PUNCTUATION, CLOSE_PAREN);
-			CharacterToken('{', PUNCTUATION, OPEN_BRACE);
-			CharacterToken('}', PUNCTUATION, CLOSE_BRACE);
-			CharacterToken('[', PUNCTUATION, OPEN_BRACKET);
-			CharacterToken(']', PUNCTUATION, CLOSE_BRACKET);
-			CharacterToken('\'', PUNCTUATION, SINGLE_QUOTE);
-			CharacterToken('`', PUNCTUATION, BACKTICK);
-			CharacterToken('^', PUNCTUATION, CARET);
-			CharacterToken('@', PUNCTUATION, AT);
+			CharacterToken('(', TOKEN_TYPE_PUNCTUATION, PUNCTUATION_OPEN_PAREN);
+			CharacterToken(')', TOKEN_TYPE_PUNCTUATION, PUNCTUATION_CLOSE_PAREN);
+			CharacterToken('{', TOKEN_TYPE_PUNCTUATION, PUNCTUATION_OPEN_BRACE);
+			CharacterToken('}', TOKEN_TYPE_PUNCTUATION, PUNCTUATION_CLOSE_BRACE);
+			CharacterToken('[', TOKEN_TYPE_PUNCTUATION, PUNCTUATION_OPEN_BRACKET);
+			CharacterToken(']', TOKEN_TYPE_PUNCTUATION, PUNCTUATION_CLOSE_BRACKET);
+			CharacterToken('\'', TOKEN_TYPE_PUNCTUATION, PUNCTUATION_SINGLE_QUOTE);
+			CharacterToken('`', TOKEN_TYPE_PUNCTUATION, PUNCTUATION_BACKTICK);
+			CharacterToken('^', TOKEN_TYPE_PUNCTUATION, PUNCTUATION_CARET);
+			CharacterToken('@', TOKEN_TYPE_PUNCTUATION, PUNCTUATION_AT);
 			case '~':
-				if (Tokenizer_PeekNextCharacter(this) == '@') {
-					return Tokenizer_AppendToken_Int(this, TokenStartPosition, 2, PUNCTUATION, TILDE_AT);
+				if (PeekNextCharacter(this) == '@') {
+					return AppendIntegerToken(this, TokenStartPosition, 2, TOKEN_TYPE_PUNCTUATION, PUNCTUATION_TILDE_AT);
 				}
 
-				return Tokenizer_AppendToken_Int(this, TokenStartPosition, 1, PUNCTUATION, TILDE);
+				return AppendIntegerToken(this, TokenStartPosition, 1, TOKEN_TYPE_PUNCTUATION, PUNCTUATION_TILDE);
 			default: break;
 		}
 
@@ -142,13 +127,13 @@ Token *Tokenizer_GetNextToken(Tokenizer *this) {
 			int StringStart = this->SourceIndex;
 			int StringLength = 0;
 
-			FirstCharacter = Tokenizer_PeekNextCharacter(this);
+			FirstCharacter = PeekNextCharacter(this);
 
-			while (FirstCharacter != '"' && !Tokenizer_AtEnd(this)) {
-				FirstCharacter = Tokenizer_GetNextCharacter(this);
+			while (FirstCharacter != '"' && !IsTokenizerAtEnd(this)) {
+				FirstCharacter = GetNextCharacter(this);
 
-				if (FirstCharacter == '\\' && Tokenizer_PeekNextCharacter(this) == '"') {
-					if (Tokenizer_GetNextCharacter(this) == 'n') {
+				if (FirstCharacter == '\\' && PeekNextCharacter(this) == '"') {
+					if (GetNextCharacter(this) == 'n') {
 						StringLength++;
 					}
 				}
@@ -180,35 +165,35 @@ Token *Tokenizer_GetNextToken(Tokenizer *this) {
 				EscapeIndex++;
 			}
 
-			String *StringText = String_Adopt(StringCopy, StringLength);
+			String *StringText = AdoptString(StringCopy, StringLength);
 
-			return Tokenizer_AppendToken(this, TokenStartPosition, UnescapedLength + 2, STRING, StringText);
+			return AppendToken(this, TokenStartPosition, UnescapedLength + 2, TOKEN_TYPE_STRING, StringText);
 		}
 		else if (!IsSpecial(FirstCharacter)) {
 			int IdentifierStart = this->SourceIndex - 1;
 
-			while (!IsSpecial(FirstCharacter) && !Tokenizer_AtEnd(this)) {
-				FirstCharacter = Tokenizer_GetNextCharacter(this);
+			while (!IsSpecial(FirstCharacter) && !IsTokenizerAtEnd(this)) {
+				FirstCharacter = GetNextCharacter(this);
 			}
 
-			if (Tokenizer_AtEnd(this) || IsSpecial(FirstCharacter)) {
+			if (IsTokenizerAtEnd(this) || IsSpecial(FirstCharacter)) {
 				this->SourceIndex--;
 			}
 
 			int IdentifierLength = this->SourceIndex - IdentifierStart;
 
-			String *IdentifierText = String_Borrow(&this->Source[IdentifierStart], IdentifierLength);
+			String *IdentifierText = BorrowString(&this->Source[IdentifierStart], IdentifierLength);
 
-			return Tokenizer_AppendToken(this, IdentifierStart, IdentifierLength, IDENTIFIER, IdentifierText);
+			return AppendToken(this, IdentifierStart, IdentifierLength, TOKEN_TYPE_IDENTIFIER, IdentifierText);
 		}
 	}
 }
 
 Token* Tokenizer_Next(Tokenizer* this) {
-	return Tokenizer_GetNextToken(this);
+	return GetNextToken(this);
 }
-Token* Tokenizer_Peek(Tokenizer* this) {
-	Token* Result = Tokenizer_GetNextToken(this);
+Token* PeekNextToken(Tokenizer* this) {
+	Token* Result = GetNextToken(this);
 
 	this->TokenIndex--;
 

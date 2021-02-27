@@ -1,5 +1,5 @@
-#ifndef MAL_COMMON_H
-#define MAL_COMMON_H
+#ifndef LISHP_COMMON_H
+#define LISHP_COMMON_H
 
 #include <stdlib.h>
 #include <string.h>
@@ -10,14 +10,14 @@
 #include <sys/stat.h>
 #include "io.h"
 
+#define alloc(Size) calloc(Size, 1)
+
 
 extern jmp_buf OnError;
 
 #define unused __unused
 
-#define EXTRA_ADDITIONS 1
-
-#define DEBUG_EVAL 1
+#define DEBUG_EVAL 0
 
 #if DEBUG_EVAL
 
@@ -62,17 +62,15 @@ typedef struct {
 #define WHITE 7
 #define BRIGHT 8
 
-void Context_Alert(ErrorContext*, char*, char);
-void Context_Error(ErrorContext*, char*);
+void ContextAlert(ErrorContext* Context, char* Message, char Color);
+void ContextError(ErrorContext* Context, char* Message);
 
-#define CloneContext(Left, Right) (Context_Clone(&(Left)->Context, &(Right)->Context))
-#define MergeContext(Left, Right) (Context_Merge(&(Left)->Context, &(Right)->Context))
-#define Error(Left, Right) (Context_Error(&Left->Context, Right))
+ErrorContext* RawContextClone(ErrorContext* To, ErrorContext* From);
+ErrorContext* RawContextMerge(ErrorContext* Left, ErrorContext* Right);
 
-ErrorContext* Context_Clone(ErrorContext*, ErrorContext*);
-ErrorContext* Context_Merge(ErrorContext*, ErrorContext*);
-
-#define alloc(Size) calloc(Size, 1)
+#define CloneContext(Left, Right) (RawContextClone(&(Left)->Context, &(Right)->Context))
+#define MergeContext(Left, Right) (RawContextMerge(&(Left)->Context, &(Right)->Context))
+#define Error(Left, Right) (ContextError(&Left->Context, Right))
 
 struct TagValue;
 struct TagEnvironment;
@@ -91,18 +89,19 @@ typedef struct {
 	struct TagValue* Body;
 	struct TagEnvironment* Environment;
 	char IsNativeFunction;
+	char IsMacro;
 } Function;
 
 typedef enum {
-	VALUE_LIST,
-	VALUE_INTEGER,
-	VALUE_STRING,
-	VALUE_IDENTIFIER,
-	VALUE_FUNCTION,
-	VALUE_NIL,
-	VALUE_BOOL,
-	VALUE_CHILD,
-	VALUE_ANY
+	VALUE_TYPE_LIST,
+	VALUE_TYPE_INTEGER,
+	VALUE_TYPE_STRING,
+	VALUE_TYPE_IDENTIFIER,
+	VALUE_TYPE_FUNCTION,
+	VALUE_TYPE_NIL,
+	VALUE_TYPE_BOOL,
+	VALUE_TYPE_CHILD,
+	VALUE_TYPE_ANY /// Fake value type used to mark that a value of any type is acceptable
 } ValueType;
 
 typedef struct TagValue {
@@ -128,37 +127,36 @@ typedef struct TagValue {
 #if DEBUG_EVAL
 	int ID;
 #endif
-
 } Value;
 
-String* String_New(char*, size_t);
-String* String_Adopt(char*, size_t);
-String* String_Borrow(char*, size_t);
-String* String_Clone(String*);
-void String_Free(String*);
-void String_Print(String*);
+String* MakeString(char* Text, size_t Length);
+String* BorrowString(char* Text, size_t Length);
+String* AdoptString(char* Text, size_t Length);
+String* CloneString(String* Target);
+void FreeString(String* Target);
+void PrintString(String* Target);
 
-List* List_New(size_t);
-void List_Extend(List*, size_t);
-void List_Free(List*);
+List* NewList(size_t Length);
+void ExtendList(List* Target, size_t ElementCount);
+void FreeList(List* Target);
 
-Value* Value_AddReference(Value*);
-int Value_Release(Value*);
-Value* Value_New_Pointer(ValueType, void*);
-Value* Value_New_Integer(ValueType, int64_t);
-Value* Value_Clone(Value*);
+Value* AddReferenceToValue(Value* Target);
+int ReleaseReferenceToValue(Value* Target);
+Value* NewPointerValue(ValueType Type, void* RawValue);
+Value* NewIntegerValues(ValueType Type, int64_t RawValue);
+Value* CloneValue(Value* Target);
 
-#define Value_New(Type, Value) _Generic((Value), \
-										List*: Value_New_Pointer,  \
-										String*: Value_New_Pointer, \
-										Function*: Value_New_Pointer, \
-										ChildProcess*: Value_New_Pointer, \
-										int64_t: Value_New_Integer, \
-										long long: Value_New_Integer, \
-										int: Value_New_Integer, \
-										size_t: Value_New_Integer, \
-										char: Value_New_Integer)(Type, Value)  \
+#define NewValue(Type, Value) _Generic((Value), \
+										List*: NewPointerValue,  \
+										String*: NewPointerValue, \
+										Function*: NewPointerValue, \
+										ChildProcess*: NewPointerValue, \
+										int64_t: NewIntegerValues, \
+										long long: NewIntegerValues, \
+										int: NewIntegerValues, \
+										size_t: NewIntegerValues, \
+										char: NewIntegerValues)(Type, Value)  \
 
-#define Value_Nil() (Value_New(VALUE_NIL, 0))
+#define NilValue() (NewValue(VALUE_TYPE_NIL, 0))
 
-#endif //MAL_COMMON_H
+#endif //LISHP_COMMON_H

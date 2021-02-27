@@ -1,20 +1,20 @@
 #include "io.h"
 #include "common.h"
 
-void StandardStream_Initialize(StandardStream* Stream) {
+void InitializeStandardStream(StandardStream* Stream) {
 	pipe(Stream->Pipe);
 }
 
-void StandardStream_Replace(int OriginalStream, int NewStream) {
-	while (dup2(NewStream, OriginalStream) == -1 && errno == EINTR) {}
+void ReplaceFileDescriptor(int OriginalDescriptor, int NewDescriptor) {
+	while (dup2(NewDescriptor, OriginalDescriptor) == -1 && errno == EINTR) {}
 }
 
-ChildProcess* ChildProcess_New(char* CommandPath, char** CommandArguments) {
+ChildProcess* NewChildProcess(char* CommandPath, char** CommandArguments) {
 	ChildProcess* Result = alloc(sizeof(ChildProcess));
 
-	StandardStream_Initialize(&Result->StandardInput);
-	StandardStream_Initialize(&Result->StandardOutput);
-	StandardStream_Initialize(&Result->StandardError);
+	InitializeStandardStream(&Result->StandardInput);
+	InitializeStandardStream(&Result->StandardOutput);
+	InitializeStandardStream(&Result->StandardError);
 
 	pid_t ChildPID = fork();
 
@@ -23,9 +23,9 @@ ChildProcess* ChildProcess_New(char* CommandPath, char** CommandArguments) {
 		close(Result->StandardOutput.Out);
 		close(Result->StandardError.Out);
 
-		StandardStream_Replace(STDIN_FILENO, Result->StandardInput.Out);
-		StandardStream_Replace(STDOUT_FILENO, Result->StandardOutput.In);
-		StandardStream_Replace(STDERR_FILENO, Result->StandardError.In);
+		ReplaceFileDescriptor(STDIN_FILENO, Result->StandardInput.Out);
+		ReplaceFileDescriptor(STDOUT_FILENO, Result->StandardOutput.In);
+		ReplaceFileDescriptor(STDERR_FILENO, Result->StandardError.In);
 
 		execvp(CommandPath, CommandArguments);
 	}
@@ -40,7 +40,7 @@ ChildProcess* ChildProcess_New(char* CommandPath, char** CommandArguments) {
 	return Result;
 }
 
-char* ChildProcess_ReadStream(ChildProcess* Child, int StreamNumber, size_t* OutSize) {
+char* ReadFromChildProcessStream(ChildProcess* Child, int StreamNumber, size_t* OutSize) {
 	StandardStream* Stream = &Child->Streams[StreamNumber];
 
 	size_t Size = 0;
@@ -61,7 +61,7 @@ char* ChildProcess_ReadStream(ChildProcess* Child, int StreamNumber, size_t* Out
 
 	return Data;
 }
-unused void ChildProcess_WriteStream(ChildProcess* Child, int StreamNumber, char* Data, size_t Size) {
+unused void WriteToChildProcessStream(ChildProcess* Child, int StreamNumber, char* Data, size_t Size) {
 	StandardStream* Stream = &Child->Streams[StreamNumber];
 
 	write(Stream->In, Data, Size);

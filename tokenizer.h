@@ -1,28 +1,28 @@
 #include "common.h"
 
-#ifndef MAL_TOKENIZER_H
-#define MAL_TOKENIZER_H
+#ifndef LISHP_TOKENIZER_H
+#define LISHP_TOKENIZER_H
 
 typedef enum {
-	STRING,
-	IDENTIFIER,
-	PUNCTUATION,
-	END,
+	TOKEN_TYPE_STRING,
+	TOKEN_TYPE_IDENTIFIER,
+	TOKEN_TYPE_PUNCTUATION,
+	TOKEN_TYPE_EOF,
 } TokenType;
 
 typedef enum {
-	OPEN_PAREN,
-	CLOSE_PAREN,
-	OPEN_BRACKET,
-	CLOSE_BRACKET,
-	OPEN_BRACE,
-	CLOSE_BRACE,
-	SINGLE_QUOTE,
-	BACKTICK,
-	TILDE,
-	TILDE_AT,
-	CARET,
-	AT
+	PUNCTUATION_OPEN_PAREN,
+	PUNCTUATION_CLOSE_PAREN,
+	PUNCTUATION_OPEN_BRACKET,
+	PUNCTUATION_CLOSE_BRACKET,
+	PUNCTUATION_OPEN_BRACE,
+	PUNCTUATION_CLOSE_BRACE,
+	PUNCTUATION_SINGLE_QUOTE,
+	PUNCTUATION_BACKTICK,
+	PUNCTUATION_TILDE,
+	PUNCTUATION_TILDE_AT,
+	PUNCTUATION_CARET,
+	PUNCTUATION_AT
 } Punctuation;
 
 typedef struct {
@@ -30,7 +30,6 @@ typedef struct {
 	TokenType Type;
 
 	union {
-		int64_t IntegerValue;
 		String* StringValue;
 		String* IdentifierValue;
 		Punctuation PunctuationValue;
@@ -52,17 +51,9 @@ typedef struct {
 	int MaxTokenIndex;
 } Tokenizer;
 
-char IsSpecial(char);
-unused void Token_Print(Token*);
+Tokenizer* NewTokenizer(char* SourceFilePath, char* Source, size_t SourceLength);
+int IsTokenizerAtEnd(Tokenizer* this);
+Token* GetNextToken(Tokenizer* this);
+Token* PeekNextToken(Tokenizer* this);
 
-Tokenizer* Tokenizer_New(char*, char*, size_t);
-unused void Tokenizer_Reset(Tokenizer*, char*, size_t);
-Token* Tokenizer_AppendToken(Tokenizer*, int, int, TokenType, void*);
-int Tokenizer_AtEnd(Tokenizer*);
-char Tokenizer_PeekNextCharacter(Tokenizer*);
-char Tokenizer_GetNextCharacter(Tokenizer*);
-Token* Tokenizer_GetNextToken(Tokenizer*);
-Token* Tokenizer_Next(Tokenizer*);
-Token* Tokenizer_Peek(Tokenizer*);
-
-#endif //MAL_TOKENIZER_H
+#endif //LISHP_TOKENIZER_H

@@ -1,5 +1,5 @@
-#ifndef MAL_READER_H
-#define MAL_READER_H
+#ifndef LISHP_READER_H
+#define LISHP_READER_H
 
 #include "common.h"
 #include "tokenizer.h"
@@ -10,4 +10,4 @@ Value* ReadForm(Tokenizer*);
 Value* ReadList(Tokenizer*);
 Value* ReadAtom(Tokenizer*);
 
-#endif //MAL_READER_H
+#endif //LISHP_READER_H

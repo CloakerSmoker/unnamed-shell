@@ -2,7 +2,7 @@
 
 void Value_Print(Value* TargetValue) {
 	switch (TargetValue->Type) {
-		case VALUE_LIST:
+		case VALUE_TYPE_LIST:
 			putchar('(');
 
 			for (int Index = 0; Index < TargetValue->ListValue->Length; Index++) {
@@ -15,21 +15,21 @@ void Value_Print(Value* TargetValue) {
 
 			putchar(')');
 			break;
-		case VALUE_IDENTIFIER:
-			String_Print(TargetValue->IdentifierValue);
+		case VALUE_TYPE_IDENTIFIER:
+			PrintString(TargetValue->IdentifierValue);
 			break;
-		case VALUE_STRING:
+		case VALUE_TYPE_STRING:
 			putchar('"');
-			String_Print(TargetValue->StringValue);
+			PrintString(TargetValue->StringValue);
 			putchar('"');
 			break;
-		case VALUE_INTEGER:
+		case VALUE_TYPE_INTEGER:
 			printf("%li", TargetValue->IntegerValue);
 			break;
-		case VALUE_FUNCTION:
+		case VALUE_TYPE_FUNCTION:
 			printf("<function>");
 			break;
-		case VALUE_BOOL:
+		case VALUE_TYPE_BOOL:
 			if (TargetValue->BoolValue) {
 				printf("true");
 			}
@@ -37,13 +37,13 @@ void Value_Print(Value* TargetValue) {
 				printf("false");
 			}
 			break;
-		case VALUE_NIL:
+		case VALUE_TYPE_NIL:
 			printf("nil");
 			break;
-		case VALUE_CHILD:
+		case VALUE_TYPE_CHILD:
 			printf("<process %i>", TargetValue->ChildValue->PID);
 			break;
-		case VALUE_ANY:
+		case VALUE_TYPE_ANY:
 			break;
 	}
 }

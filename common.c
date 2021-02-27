@@ -38,7 +38,7 @@ char* FindStartOfLine(char* Start, int Offset) {
 	return &Start[LastLineStart];
 }
 
-void Context_Alert(ErrorContext* Context, char* Message, char Color) {
+void ContextAlert(ErrorContext* Context, char* Message, char Color) {
 	char LineNumberString[100] = {0};
 
 	snprintf(LineNumberString, 100, "%d", Context->LineNumber);
@@ -112,16 +112,16 @@ void Context_Alert(ErrorContext* Context, char* Message, char Color) {
 	printf("\n");
 }
 
-void Context_Error(ErrorContext* Context, char* Message) {
-	Context_Alert(Context, Message, RED | BRIGHT);
+void ContextError(ErrorContext* Context, char* Message) {
+	ContextAlert(Context, Message, RED | BRIGHT);
 }
 
-ErrorContext *Context_Clone(ErrorContext* To, ErrorContext* From) {
+ErrorContext* RawContextClone(ErrorContext* To, ErrorContext* From) {
 	memcpy(To, From, sizeof(ErrorContext));
 
 	return To;
 }
-ErrorContext *Context_Merge(ErrorContext* Left, ErrorContext* Right) {
+ErrorContext* RawContextMerge(ErrorContext* Left, ErrorContext* Right) {
 	if (Left->Position > Right->Position) {
 		Left->Position = Right->Position;
 	}
@@ -143,7 +143,7 @@ ErrorContext *Context_Merge(ErrorContext* Left, ErrorContext* Right) {
 /// \param Text A pointer to the string to copy
 /// \param Length
 /// \return
-String* String_New(char* Text, size_t Length) {
+String* MakeString(char* Text, size_t Length) {
 	String* Result = malloc(sizeof(String));
 
 	Result->Buffer = strndup(Text, Length);
@@ -156,7 +156,7 @@ String* String_New(char* Text, size_t Length) {
 /// \param Text A pointer to the string to borrow
 /// \param Length
 /// \return
-String* String_Borrow(char* Text, size_t Length) {
+String* BorrowString(char* Text, size_t Length) {
 	String* Result = malloc(sizeof(String));
 
 	Result->Buffer = Text;
@@ -169,7 +169,7 @@ String* String_Borrow(char* Text, size_t Length) {
 /// \param Text A pointer to the string to take ownership of
 /// \param Length
 /// \return
-String* String_Adopt(char* Text, size_t Length) {
+String* AdoptString(char* Text, size_t Length) {
 	String* Result = malloc(sizeof(String));
 
 	Result->Buffer = Text;
@@ -181,7 +181,7 @@ String* String_Adopt(char* Text, size_t Length) {
 /// Creates a new String containing the exact same text as the String passed, but in a separate allocation.
 /// \param Target A pointer to the String to clone
 /// \return
-String* String_Clone(String* Target) {
+String* CloneString(String* Target) {
 	String* Result = malloc(sizeof(String));
 
 	Result->Buffer = strndup(Target->Buffer, Target->Length);
@@ -192,18 +192,18 @@ String* String_Clone(String* Target) {
 }
 /// Free-s the given String's memory, and the buffer containing the String's text if it is owned by said string
 /// \param Target
-void String_Free(String* Target) {
+void FreeString(String* Target) {
 	if (Target->AllocationMethod == STRING_SELF_ALLOCATED) {
 		free(Target->Buffer);
 	}
 
 	free(Target);
 }
-void String_Print(String* Target) {
+void PrintString(String* Target) {
 	printf("%.*s", (int)Target->Length, Target->Buffer);
 }
 
-List* List_New(size_t Length) {
+List* NewList(size_t Length) {
 	List* Result = alloc(sizeof(List));
 
 	Result->Length = Length;
@@ -211,45 +211,45 @@ List* List_New(size_t Length) {
 
 	return Result;
 }
-void List_Extend(List* Target, size_t ElementCount) {
+void ExtendList(List* Target, size_t ElementCount) {
 	Target->Length += ElementCount;
 	Target->Values = realloc(Target->Values, Target->Length * sizeof(Value*));
 }
-void List_Free(List* Target) {
+void FreeList(List* Target) {
 	free(Target->Values);
 	free(Target);
 }
 
-void Value_Free(Value* TargetValue) {
+void Value_Free(Value* Target) {
 #if DEBUG_EVAL
 	SetTerminalColors(GREEN | BRIGHT, BLACK);
-	EVAL_DEBUG_PRINT_PREFIX printf("Destroy %i\n", TargetValue->ID);
+	EVAL_DEBUG_PRINT_PREFIX printf("Destroy %i\n", Target->ID);
 	SetTerminalColors(WHITE | BRIGHT, BLACK);
 #endif
 
-	switch (TargetValue->Type) {
-		case VALUE_STRING:
-		case VALUE_IDENTIFIER:
-			String_Free(TargetValue->StringValue);
+	switch (Target->Type) {
+		case VALUE_TYPE_STRING:
+		case VALUE_TYPE_IDENTIFIER:
+			FreeString(Target->StringValue);
 			break;
-		case VALUE_FUNCTION:
-			if (!TargetValue->FunctionValue->IsNativeFunction) {
-				Value_Release(TargetValue->FunctionValue->Body);
-				Value_Release(TargetValue->FunctionValue->ParameterBindings);
+		case VALUE_TYPE_FUNCTION:
+			if (!Target->FunctionValue->IsNativeFunction) {
+				ReleaseReferenceToValue(Target->FunctionValue->Body);
+				ReleaseReferenceToValue(Target->FunctionValue->ParameterBindings);
 			}
 
 			break;
-		case VALUE_LIST:
-			for (int Index = 0; Index < TargetValue->ListValue->Length; Index++) {
-				Value_Release(TargetValue->ListValue->Values[Index]);
+		case VALUE_TYPE_LIST:
+			for (int Index = 0; Index < Target->ListValue->Length; Index++) {
+				ReleaseReferenceToValue(Target->ListValue->Values[Index]);
 			}
 
-			List_Free(TargetValue->ListValue);
+			FreeList(Target->ListValue);
 			break;
 		default: break;
 	}
 
-	free(TargetValue);
+	free(Target);
 }
 
 void Value_Print(Value*);
@@ -259,30 +259,30 @@ int EvalDebugDepth = 0;
 int EvalNextValueID = 1;
 #endif
 
-Value* Value_AddReference(Value* TargetValue) {
+Value* AddReferenceToValue(Value* Target) {
 #if DEBUG_REFCOUNTS
 	SetTerminalColors(RED | GREEN, BLACK);
-	EVAL_DEBUG_PRINT_PREFIX printf("AddRef %i '", TargetValue->ID);
-	Value_Print(TargetValue);
+	EVAL_DEBUG_PRINT_PREFIX printf("AddRef %i '", Target->ID);
+	Value_Print(Target);
 #endif
 
-	TargetValue->ReferenceCount++;
+	Target->ReferenceCount++;
 
 #if DEBUG_REFCOUNTS
-	printf("' (%i references left)\n", TargetValue->ReferenceCount);
+	printf("' (%i references left)\n", Target->ReferenceCount);
 	SetTerminalColors(WHITE | BRIGHT, BLACK);
 #endif
 
-	return TargetValue;
+	return Target;
 }
-int Value_Release(Value* TargetValue) {
+int ReleaseReferenceToValue(Value* Target) {
 #if DEBUG_REFCOUNTS
 	SetTerminalColors(BLUE | BRIGHT, BLACK);
-	EVAL_DEBUG_PRINT_PREFIX printf("Release %i '", TargetValue->ID);
-	Value_Print(TargetValue);
+	EVAL_DEBUG_PRINT_PREFIX printf("Release %i '", Target->ID);
+	Value_Print(Target);
 #endif
 
-	int ReferenceCount = --TargetValue->ReferenceCount;
+	int ReferenceCount = --Target->ReferenceCount;
 
 #if DEBUG_REFCOUNTS
 	printf("' (%i references left)\n", ReferenceCount);
@@ -290,13 +290,13 @@ int Value_Release(Value* TargetValue) {
 #endif
 
 	if (ReferenceCount == 0) {
-		Value_Free(TargetValue);
+		Value_Free(Target);
 	}
 
 	return ReferenceCount;
 }
 
-Value* Value_New_Pointer(ValueType Type, void* RawValue) {
+Value* NewPointerValue(ValueType Type, void* RawValue) {
 	Value* Result = alloc(sizeof(Value));
 
 	Result->Type = Type;
@@ -310,9 +310,9 @@ Value* Value_New_Pointer(ValueType Type, void* RawValue) {
 	SetTerminalColors(WHITE | BRIGHT, BLACK);
 #endif
 
-	return Value_AddReference(Result);
+	return AddReferenceToValue(Result);
 }
-Value* Value_New_Integer(ValueType Type, int64_t RawValue) {
+Value* NewIntegerValues(ValueType Type, int64_t RawValue) {
 	Value* Result = alloc(sizeof(Value));
 
 	Result->Type = Type;
@@ -326,37 +326,38 @@ Value* Value_New_Integer(ValueType Type, int64_t RawValue) {
 	SetTerminalColors(WHITE | BRIGHT, BLACK);
 #endif
 
-	return Value_AddReference(Result);
+	return AddReferenceToValue(Result);
 }
-Value* Value_Clone(Value* TargetValue) {
-	Value* Result = Value_New(TargetValue->Type, TargetValue->IntegerValue);
+Value* CloneValue(Value* Target) {
+	Value* Result = NewValue(Target->Type, Target->IntegerValue);
+	CloneContext(Result, Target);
 
-	switch (TargetValue->Type) {
-		case VALUE_LIST:
-			for (int Index = 0; Index < TargetValue->ListValue->Length; Index++) {
-				Value_AddReference(TargetValue->ListValue->Values[Index]);
+	switch (Target->Type) {
+		case VALUE_TYPE_LIST:
+			for (int Index = 0; Index < Target->ListValue->Length; Index++) {
+				AddReferenceToValue(Target->ListValue->Values[Index]);
 			}
 
 			List* ResultList = alloc(sizeof(List));
-			ResultList->Length = TargetValue->ListValue->Length;
+			ResultList->Length = Target->ListValue->Length;
 			ResultList->Values = alloc(ResultList->Length * sizeof(Value*));
 
-			memcpy(ResultList->Values, TargetValue->ListValue->Values, ResultList->Length * sizeof(Value*));
+			memcpy(ResultList->Values, Target->ListValue->Values, ResultList->Length * sizeof(Value*));
 
 			Result->ListValue = ResultList;
 
 			break;
-		case VALUE_STRING:
-		case VALUE_IDENTIFIER:
-			Result->StringValue = String_Clone(TargetValue->StringValue);
+		case VALUE_TYPE_STRING:
+		case VALUE_TYPE_IDENTIFIER:
+			Result->StringValue = CloneString(Target->StringValue);
 			break;
-		case VALUE_FUNCTION:
-			if (!TargetValue->FunctionValue->IsNativeFunction) {
-				Value_AddReference(TargetValue->FunctionValue->ParameterBindings);
-				Value_AddReference(TargetValue->FunctionValue->Body);
+		case VALUE_TYPE_FUNCTION:
+			if (!Target->FunctionValue->IsNativeFunction) {
+				AddReferenceToValue(Target->FunctionValue->ParameterBindings);
+				AddReferenceToValue(Target->FunctionValue->Body);
 			}
 		default:
-			Result->IntegerValue = TargetValue->IntegerValue;
+			Result->IntegerValue = Target->IntegerValue;
 			break;
 	}
 

@@ -4,9 +4,9 @@
 #include "reader.h"
 
 Value* ReadForm(Tokenizer* this) {
-	Token* FirstToken = Tokenizer_Peek(this);
+	Token* FirstToken = PeekNextToken(this);
 
-	if (FirstToken->Type == PUNCTUATION && FirstToken->PunctuationValue == OPEN_PAREN) {
+	if (FirstToken->Type == TOKEN_TYPE_PUNCTUATION && FirstToken->PunctuationValue == PUNCTUATION_OPEN_PAREN) {
 		return ReadList(this);
 	}
 	else {
@@ -15,9 +15,9 @@ Value* ReadForm(Tokenizer* this) {
 }
 
 Value* ReadList(Tokenizer* this) {
-	Token* FirstToken = Tokenizer_Next(this);
+	Token* FirstToken = GetNextToken(this);
 
-	if (FirstToken->Type != PUNCTUATION || FirstToken->PunctuationValue != OPEN_PAREN) {
+	if (FirstToken->Type != TOKEN_TYPE_PUNCTUATION || FirstToken->PunctuationValue != PUNCTUATION_OPEN_PAREN) {
 		Error(FirstToken, "Expected opening '(' for list");
 		longjmp(OnError, 0);
 	}
@@ -27,23 +27,23 @@ Value* ReadList(Tokenizer* this) {
 	Result->Values = calloc(sizeof(Value*), 30);
 	Result->Length = 0;
 
-	Token* NextToken = Tokenizer_Peek(this);
+	Token* NextToken = PeekNextToken(this);
 
-	while (NextToken->Type != PUNCTUATION || NextToken->PunctuationValue != CLOSE_PAREN) {
+	while (NextToken->Type != TOKEN_TYPE_PUNCTUATION || NextToken->PunctuationValue != PUNCTUATION_CLOSE_PAREN) {
 		Value* LastForm = Result->Values[Result->Length++] = ReadForm(this);
 
-		NextToken = Tokenizer_Peek(this);
+		NextToken = PeekNextToken(this);
 
-		if (NextToken->Type == END) {
+		if (NextToken->Type == TOKEN_TYPE_EOF) {
 			Error(FirstToken, "Unclosed list opened here:");
 			Error(LastForm, "Last valid entry:");
 			longjmp(OnError, 0);
 		}
 	}
 
-	Tokenizer_Next(this);
+	GetNextToken(this);
 
-	Value* RealResult = Value_New(VALUE_LIST, Result);
+	Value* RealResult = NewValue(VALUE_TYPE_LIST, Result);
 
 	CloneContext(RealResult, FirstToken);
 	MergeContext(RealResult, NextToken);
@@ -52,13 +52,13 @@ Value* ReadList(Tokenizer* this) {
 }
 
 Value* ReadAtom(Tokenizer* this) {
-	Token* TokenToConvert = Tokenizer_Next(this);
+	Token* TokenToConvert = GetNextToken(this);
 	Value* Result = NULL;
 
-	if (TokenToConvert->Type == STRING) {
-		Result = Value_New(VALUE_STRING, TokenToConvert->StringValue);
+	if (TokenToConvert->Type == TOKEN_TYPE_STRING) {
+		Result = NewValue(VALUE_TYPE_STRING, TokenToConvert->StringValue);
 	}
-	else if (TokenToConvert->Type == IDENTIFIER) {
+	else if (TokenToConvert->Type == TOKEN_TYPE_IDENTIFIER) {
 		char IsNumber = 1;
 
 		for (int Index = 0; Index < TokenToConvert->IdentifierValue->Length; Index++) {
@@ -69,20 +69,20 @@ Value* ReadAtom(Tokenizer* this) {
 		}
 
 		if (IsNumber) {
-			Result = Value_New(VALUE_INTEGER, strtoll(TokenToConvert->IdentifierValue->Buffer, NULL, 10));
+			Result = NewValue(VALUE_TYPE_INTEGER, strtoll(TokenToConvert->IdentifierValue->Buffer, NULL, 10));
 		}
 		else {
 			if (!strncmp(TokenToConvert->IdentifierValue->Buffer, "true", TokenToConvert->IdentifierValue->Length)) {
-				Result = Value_New(VALUE_BOOL, 1);
+				Result = NewValue(VALUE_TYPE_BOOL, 1);
 			}
 			else if (!strncmp(TokenToConvert->IdentifierValue->Buffer, "false", TokenToConvert->IdentifierValue->Length)) {
-				Result = Value_New(VALUE_BOOL, 0);
+				Result = NewValue(VALUE_TYPE_BOOL, 0);
 			}
 			else if (!strncmp(TokenToConvert->IdentifierValue->Buffer, "nil", TokenToConvert->IdentifierValue->Length)) {
-				Result = Value_New(VALUE_NIL, 0);
+				Result = NewValue(VALUE_TYPE_NIL, 0);
 			}
 			else {
-				Result = Value_New(VALUE_IDENTIFIER, TokenToConvert->IdentifierValue);
+				Result = NewValue(VALUE_TYPE_IDENTIFIER, TokenToConvert->IdentifierValue);
 			}
 		}
 	}

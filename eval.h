@@ -1,5 +1,5 @@
-#ifndef MAL_EVAL_H
-#define MAL_EVAL_H
+#ifndef LISHP_EVAL_H
+#define LISHP_EVAL_H
 
 #include <stdint.h>
 #include <dirent.h>
@@ -28,18 +28,18 @@ typedef struct TagEnvironment {
 	SymbolMap* Symbols;
 } Environment;
 
-SymbolMap* SymbolMap_New();
-void SymbolMap_Set(SymbolMap*, char*, size_t, void*);
+SymbolMap* NewSymbolMap();
+void SetSymbolMapEntry(SymbolMap* this, char* Key, size_t KeyLength, void* Value);
 
-Environment* Eval_Setup();
-Environment* Environment_New_Bindings(Environment*, Value*, Value*);
-void Environment_ReleaseAndFree(Environment*);
-Value* Eval_Apply(Environment*, Value*);
-Value* Eval_GetParameterRaw(Value*, ValueType, int);
-Value* Eval_CallFunction(Environment*, Value*);
+Environment* SetupEnvironment();
+Environment* NewEnvironmentWithBindings(Environment* Outer, Value* BindingNames, Value* BindingValues);
+void DestroyEnvironment(Environment* Target);
+Value* Evaluate(Environment* this, Value* Target);
+Value* EvaluateFunctionCall(Environment* this, Value* Call);
 
-#define Eval_GetParameter(List, Type, Index) Eval_GetParameterRaw((List), (Type), (Index) + 1)
-#define Eval_GetParameterReference(List, Type, Index) Value_AddReference(Eval_GetParameter((List), (Type), (Index)))
-#define Eval_GetParameterReferenceRaw(List, Type, Index) Value_AddReference(Eval_GetParameterRaw((List), (Type), (Index)))
+Value* RawGetListIndex(Value* Target, ValueType ExpectedType, int Index);
+#define GetListIndex(List, Type, Index) RawGetListIndex((List), (Type), (Index) + 1)
+#define GetReferenceToListIndex(List, Type, Index) AddReferenceToValue(GetListIndex((List), (Type), (Index)))
+#define RawGetReferenceToListIndex(List, Type, Index) AddReferenceToValue(RawGetListIndex((List), (Type), (Index)))
 
-#endif //MAL_EVAL_H
+#endif //LISHP_EVAL_H
