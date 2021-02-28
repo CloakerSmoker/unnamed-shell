@@ -6,8 +6,28 @@
 Value* ReadForm(Tokenizer* this) {
 	Token* FirstToken = PeekNextToken(this);
 
-	if (FirstToken->Type == TOKEN_TYPE_PUNCTUATION && FirstToken->PunctuationValue == PUNCTUATION_OPEN_PAREN) {
-		return ReadList(this);
+	if (FirstToken->Type == TOKEN_TYPE_PUNCTUATION) {
+		if (FirstToken->PunctuationValue == PUNCTUATION_OPEN_PAREN) {
+			return ReadList(this);
+		}
+
+#define ReaderMacro(Punctuation, Replacement) else if (FirstToken->PunctuationValue == (Punctuation)) { \
+        GetNextToken(this); \
+        Value* Quote = NewValue(VALUE_TYPE_IDENTIFIER, BorrowString((Replacement), strlen(Replacement))); \
+        CloneContext(Quote, FirstToken);                                                                                                 \
+        List* ResultList = NewList(2); \
+        ResultList->Values[0] = Quote; \
+        Value* QuotedValue = ResultList->Values[1] = ReadForm(this); \
+        Value* Result = NewValue(VALUE_TYPE_LIST, ResultList); \
+        CloneContext(Result, Quote); \
+        MergeContext(Result, QuotedValue); \
+        return Result; \
+    }
+
+		ReaderMacro(PUNCTUATION_SINGLE_QUOTE, "quote")
+		ReaderMacro(PUNCTUATION_BACKTICK, "quasiquote")
+		ReaderMacro(PUNCTUATION_TILDE, "unquote")
+		ReaderMacro(PUNCTUATION_TILDE_AT, "splice-unquote")
 	}
 	else {
 		return ReadAtom(this);

@@ -1,5 +1,4 @@
 #include "eval.h"
-#include "builtins.h"
 
 int Hash(const char* String, int Length) {
 	int Hash = 0;
@@ -162,18 +161,6 @@ Environment* NewEnvironment(Environment* Outer) {
 
 	return Result;
 }
-Environment* NewEnvironmentWithBindings(Environment* Outer, Value* BindingNames, Value* BindingValues) {
-	Environment* Result = NewEnvironment(Outer);
-
-	for (int Index = 0; Index < BindingNames->ListValue->Length; Index++) {
-		Value* BindingName = RawGetListIndex(BindingNames, VALUE_TYPE_IDENTIFIER, Index);
-		Value* BindingValue = RawGetListIndex(BindingValues, VALUE_TYPE_ANY, Index + 1);
-
-		SetEnvironmentEntry(Result, BindingName->IdentifierValue, BindingValue);
-	}
-
-	return Result;
-}
 
 void ReleaseEnvironmentEntries(Environment* Target) {
 	SymbolEntry** Symbols = Target->Symbols->Elements;
@@ -246,15 +233,50 @@ Value* RawEvaluateFunctionCall(unused Environment* this, Function* TargetFunctio
 		Result = TargetFunction->NativeValue(Call);
 	}
 	else {
-		size_t ParameterCount = Call->ListValue->Length - 1;
+		Value* BindingNames = TargetFunction->ParameterBindings;
 
-		if (ParameterCount != TargetFunction->ParameterBindings->ListValue->Length) {
+		size_t PassedParameterCount = Call->ListValue->Length - 1;
+		size_t ExpectedParameterCount = BindingNames->ListValue->Length;
+
+		size_t BindingNamesCount = ExpectedParameterCount;
+
+		if (TargetFunction->IsVariadic) {
+			if (PassedParameterCount < ExpectedParameterCount - 1) {
+				Error(Call, "Incorrect number of parameters passed to function");
+				longjmp(OnError, 0);
+			}
+
+			BindingNamesCount -= 2;
+		}
+		else if (PassedParameterCount != ExpectedParameterCount) {
 			Error(Call, "Incorrect number of parameters passed to function");
 			longjmp(OnError, 0);
 		}
 
-		Environment* Closure = NewEnvironmentWithBindings(TargetFunction->Environment,
-		                                                  TargetFunction->ParameterBindings, Call);
+		Environment* Closure = NewEnvironment(TargetFunction->Environment);
+
+		for (int Index = 0; Index < BindingNamesCount; Index++) {
+			Value* BindingName = RawGetListIndex(BindingNames, VALUE_TYPE_IDENTIFIER, Index);
+			Value* BindingValue = RawGetListIndex(Call, VALUE_TYPE_ANY, Index + 1);
+
+			SetEnvironmentEntry(Closure, BindingName->IdentifierValue, BindingValue);
+		}
+
+		if (TargetFunction->IsVariadic) {
+			Value* FinalBindingName = RawGetListIndex(BindingNames, VALUE_TYPE_IDENTIFIER, BindingNames->ListValue->Length - 1);
+
+			size_t VariadicCount = Call->ListValue->Length - 1 - BindingNamesCount;
+
+			List* VariadicList = NewList(VariadicCount);
+
+			for (size_t Index = 0; Index < VariadicCount; Index++) {
+				VariadicList->Values[Index] = RawGetListIndex(Call, VALUE_TYPE_ANY, Index + BindingNamesCount + 1);
+			}
+
+			Value* VariadicParameters = NewValue(VALUE_TYPE_LIST, VariadicList);
+
+			SetEnvironmentEntry(Closure, FinalBindingName->IdentifierValue, VariadicParameters);
+		}
 
 		Result = Evaluate(Closure, AddReferenceToValue(TargetFunction->Body));
 
@@ -621,9 +643,22 @@ Value* Evaluate(Environment* this, Value* Target) {
 					else if (!strncmp(Name->Buffer, "fn*", Name->Length)) {
 						Value* BindingNames = GetReferenceToListIndex(Target, VALUE_TYPE_LIST, 0);
 						Value* Body = GetReferenceToListIndex(Target, VALUE_TYPE_ANY, 1);
+						char IsVariadic = 0;
 
 						for (int Index = 0; Index < BindingNames->ListValue->Length; Index++) {
-							RawGetListIndex(BindingNames, VALUE_TYPE_IDENTIFIER, Index);
+							Value* NextBindingValue = RawGetListIndex(BindingNames, VALUE_TYPE_IDENTIFIER, Index);
+
+							String* NextBinding = NextBindingValue->StringValue;
+
+							if (!strncmp(NextBinding->Buffer, "...", NextBinding->Length)) {
+								IsVariadic = 1;
+
+								RawGetListIndex(BindingNames, VALUE_TYPE_IDENTIFIER, Index + 1);
+
+								if (Index + 2 != BindingNames->ListValue->Length) {
+									Error(BindingNames, "Variadic binding name should be last in binding list");
+								}
+							}
 						}
 
 						Function* NewFunction = alloc(sizeof(Function));
@@ -631,6 +666,7 @@ Value* Evaluate(Environment* this, Value* Target) {
 						NewFunction->ParameterBindings = BindingNames;
 						NewFunction->Body = Body;
 						NewFunction->Environment = this;
+						NewFunction->IsVariadic = IsVariadic;
 
 						Value* NewFunctionValue = NewValue(VALUE_TYPE_FUNCTION, NewFunction);
 

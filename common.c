@@ -30,8 +30,7 @@ char* FindStartOfLine(char* Start, int Offset) {
 
 	for (int Index = 0; Index < Offset; Index++) {
 		if (Start[Index] == 0xA || Start[Index] == 0xD) {
-			LastLineStart = Index;
-			break;
+			LastLineStart = Index + 1;
 		}
 	}
 

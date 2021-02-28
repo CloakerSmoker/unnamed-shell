@@ -90,6 +90,7 @@ typedef struct {
 	struct TagEnvironment* Environment;
 	char IsNativeFunction;
 	char IsMacro;
+	char IsVariadic;
 } Function;
 
 typedef enum {

@@ -210,6 +210,60 @@ EVAL_FUNCTION Value* Eval_StringSplit(Value* Parameters) {
 	return NewValue(VALUE_TYPE_LIST, ResultList);
 }
 
+void RaiseTypeError(Value* Blame, ValueType ExpectedType);
+
+EVAL_FUNCTION Value* Eval_StringConcatenate(Value* Parameters) {
+	size_t NewLength = 0;
+
+	for (int Index = 1; Index < Parameters->ListValue->Length; Index++) {
+		Value* Next = RawGetListIndex(Parameters, VALUE_TYPE_ANY, Index);
+
+		if (Next->Type != VALUE_TYPE_STRING && Next->Type != VALUE_TYPE_IDENTIFIER) {
+			RaiseTypeError(Next, VALUE_TYPE_STRING);
+		}
+
+		NewLength += Next->StringValue->Length;
+	}
+
+	char* Buffer = alloc(NewLength + 1);
+	int Offset = 0;
+
+	for (int Index = 1; Index < Parameters->ListValue->Length; Index++) {
+		Value* Next = RawGetListIndex(Parameters, VALUE_TYPE_ANY, Index);
+
+		memcpy(Buffer + Offset, Next->StringValue->Buffer, Next->StringValue->Length);
+
+		Offset += Next->StringValue->Length;
+	}
+
+	return NewValue(VALUE_TYPE_STRING, AdoptString(Buffer, NewLength));
+}
+EVAL_FUNCTION Value* Eval_StringSlice(Value* Parameters) {
+	String* Target = GetListIndex(Parameters, VALUE_TYPE_STRING, 0)->StringValue;
+	int Start = GetListIndex(Parameters, VALUE_TYPE_INTEGER, 1)->IntegerValue;
+
+	int Length = Target->Length;
+
+	if (Parameters->ListValue->Length >= 4) {
+		Length = GetListIndex(Parameters, VALUE_TYPE_INTEGER, 2)->IntegerValue;
+	}
+
+	char* Buffer = alloc(Length + 1);
+
+	strncpy(Buffer, Target->Buffer + Start, Length);
+
+	return NewValue(VALUE_TYPE_STRING, AdoptString(Buffer, Length));
+}
+EVAL_FUNCTION Value* Eval_StringSymbol(Value* Parameters) {
+	Value* Target = GetListIndex(Parameters, VALUE_TYPE_STRING, 0);
+
+	Value* Result = CloneValue(Target);
+
+	Result->Type = VALUE_TYPE_IDENTIFIER;
+
+	return Result;
+}
+
 int Value_Equals(Value* Left, Value* Right) {
 	if (Left->Type != Right->Type) {
 		return 0;
@@ -346,6 +400,27 @@ EVAL_FUNCTION Value* Eval_Slurp(Value* Parameters) {
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "bugprone-sizeof-expression"
 
+String* StringifyValue(Value* Target) {
+	if (Target->Type == VALUE_TYPE_IDENTIFIER || Target->Type == VALUE_TYPE_STRING) {
+		return CloneString(Target->IdentifierValue);
+	}
+	else if (Target->Type == VALUE_TYPE_INTEGER) {
+		char* Buffer = alloc(40);
+
+		snprintf(Buffer, 40, "%li", Target->IntegerValue);
+
+		return AdoptString(Buffer, strlen(Buffer));
+	}
+
+	return NULL;
+}
+
+Value* Eval_ToString(Value* Parameters) {
+	Value* Target = GetListIndex(Parameters, VALUE_TYPE_ANY, 0);
+
+	return NewValue(VALUE_TYPE_STRING, StringifyValue(Target));
+}
+
 Environment* SetupEnvironment() {
 	SymbolMap* Symbols = NewSymbolMap();
 
@@ -373,6 +448,9 @@ SetSymbolMapEntry(Symbols, #LispName, strlen(#LispName), FunctionValue);} while 
 	AddSymbolFunction(ListPush, list.push);
 	AddSymbolFunction(StringLength, string.length);
 	AddSymbolFunction(StringSplit, string.split);
+	AddSymbolFunction(StringConcatenate, string.concat);
+	AddSymbolFunction(StringSlice, string.sub);
+	AddSymbolFunction(StringSymbol, string->symbol);
 	AddSymbolFunction(Equals, =);
 	AddSymbolFunction(CreateProcess, process.make);
 	AddSymbolFunction(ReadProcessOutput, process.read_output);
@@ -380,6 +458,7 @@ SetSymbolMapEntry(Symbols, #LispName, strlen(#LispName), FunctionValue);} while 
 	AddSymbolFunction(Eval, eval);
 	AddSymbolFunction(Parse, parse);
 	AddSymbolFunction(Slurp, slurp);
+	AddSymbolFunction(ToString, any->string);
 
 	Environment* Result = alloc(sizeof(Environment));
 

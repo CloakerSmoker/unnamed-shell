@@ -116,6 +116,8 @@ Token* GetNextToken(Tokenizer* this) {
 			CharacterToken('@', TOKEN_TYPE_PUNCTUATION, PUNCTUATION_AT);
 			case '~':
 				if (PeekNextCharacter(this) == '@') {
+					GetNextCharacter(this);
+
 					return AppendIntegerToken(this, TokenStartPosition, 2, TOKEN_TYPE_PUNCTUATION, PUNCTUATION_TILDE_AT);
 				}
 
@@ -127,7 +129,7 @@ Token* GetNextToken(Tokenizer* this) {
 			int StringStart = this->SourceIndex;
 			int StringLength = 0;
 
-			FirstCharacter = PeekNextCharacter(this);
+			FirstCharacter = 0;
 
 			while (FirstCharacter != '"' && !IsTokenizerAtEnd(this)) {
 				FirstCharacter = GetNextCharacter(this);
