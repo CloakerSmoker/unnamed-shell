@@ -215,6 +215,8 @@ void ExtendList(List* Target, size_t ElementCount) {
 	Target->Values = realloc(Target->Values, Target->Length * sizeof(Value*));
 }
 void FreeList(List* Target) {
+	//EVAL_DEBUG_PRINT_PREFIX printf("FreeList(%p, %p, %li)\n", Target, Target->Values, Target->Length);
+
 	free(Target->Values);
 	free(Target);
 }
@@ -242,6 +244,8 @@ void Value_Free(Value* Target) {
 			for (int Index = 0; Index < Target->ListValue->Length; Index++) {
 				ReleaseReferenceToValue(Target->ListValue->Values[Index]);
 			}
+
+			//EVAL_DEBUG_PRINT_PREFIX printf("FreeListN(%i)\n", Target->ID);
 
 			FreeList(Target->ListValue);
 			break;

@@ -26,7 +26,7 @@ Value* ReadForm(Tokenizer* this) {
 
 		ReaderMacro(PUNCTUATION_SINGLE_QUOTE, "quote")
 		ReaderMacro(PUNCTUATION_BACKTICK, "quasiquote")
-		ReaderMacro(PUNCTUATION_TILDE, "unquote")
+		ReaderMacro(PUNCTUATION_AT, "unquote")
 		ReaderMacro(PUNCTUATION_TILDE_AT, "splice-unquote")
 	}
 	else {
@@ -44,12 +44,18 @@ Value* ReadList(Tokenizer* this) {
 
 	List* Result = alloc(sizeof(List));
 
-	Result->Values = calloc(sizeof(Value*), 30);
+	int ListCapacity = 10;
+	Result->Values = calloc(10, sizeof(Value*));
 	Result->Length = 0;
 
 	Token* NextToken = PeekNextToken(this);
 
 	while (NextToken->Type != TOKEN_TYPE_PUNCTUATION || NextToken->PunctuationValue != PUNCTUATION_CLOSE_PAREN) {
+		if (Result->Length + 5 > ListCapacity) {
+			ListCapacity += 10;
+			Result->Values = realloc(Result->Values, ListCapacity * sizeof(Value*));
+		}
+
 		Value* LastForm = Result->Values[Result->Length++] = ReadForm(this);
 
 		NextToken = PeekNextToken(this);

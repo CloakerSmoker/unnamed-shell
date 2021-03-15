@@ -17,6 +17,7 @@ Eval_Binary_Int(Sub, -)
 Eval_Binary_Int(Mul, *)
 
 Eval_Binary_Int(Div, /)
+Eval_Binary_Int(Mod, %)
 
 #define EVAL_FUNCTION __unused
 
@@ -90,6 +91,13 @@ EVAL_FUNCTION Value* Eval_Print(Value* Parameters) {
 			putchar(' ');
 		}
 	}
+
+	return NilValue();
+}
+EVAL_FUNCTION Value* Eval_PrintCharacter(Value* Parameters) {
+	int64_t PrintValue = GetListIndex(Parameters, VALUE_TYPE_INTEGER, 0)->IntegerValue;
+
+	printf("%c", (char)PrintValue);
 
 	return NilValue();
 }
@@ -186,8 +194,6 @@ EVAL_FUNCTION Value* Eval_ListPush(Value* Parameters) {
 
 		ResultList->Values[OldElementCount + Index] = AddReferenceToValue(NextValue);
 	}
-
-	ReleaseReferenceToValue(TargetListValue);
 
 	return NewValue(VALUE_TYPE_LIST, ResultList);
 }
@@ -322,6 +328,12 @@ EVAL_FUNCTION Value* Eval_Equals(Value* Parameters) {
 
 	return NewValue(VALUE_TYPE_BOOL, ResultValue);
 }
+EVAL_FUNCTION Value* Eval_Less(Value* Parameters) {
+	int64_t Left = GetListIndex(Parameters, VALUE_TYPE_INTEGER, 0)->IntegerValue;
+	int64_t Right = GetListIndex(Parameters, VALUE_TYPE_INTEGER, 1)->IntegerValue;
+
+	return NewValue(VALUE_TYPE_BOOL, Left < Right);
+}
 
 EVAL_FUNCTION Value* Eval_CreateProcess(Value* Parameters) {
 	String* Path = GetListIndex(Parameters, VALUE_TYPE_STRING, 0)->StringValue;
@@ -344,6 +356,14 @@ EVAL_FUNCTION Value* Eval_GetReferenceCount(Value* Parameters) {
 	Value* Parameter = GetListIndex(Parameters, VALUE_TYPE_ANY, 0);
 
 	return NewValue(VALUE_TYPE_INTEGER, Parameter->ReferenceCount);
+}
+
+EVAL_FUNCTION Value* Eval_ReadCharacter(Value* Parameters) {
+	char* Result = alloc(1);
+
+	*Result = getchar();
+
+	return NewValue(VALUE_TYPE_STRING, AdoptString(Result, 1));
 }
 
 EVAL_FUNCTION Value* Eval_Eval(Value* Parameters) {
@@ -421,6 +441,40 @@ Value* Eval_ToString(Value* Parameters) {
 	return NewValue(VALUE_TYPE_STRING, StringifyValue(Target));
 }
 
+Value* Eval_OSEnvironmentGet(Value* Parameters) {
+	String* KeyName = GetListIndex(Parameters, VALUE_TYPE_STRING, 0)->StringValue;
+
+	char* RawResult = getenv(KeyName->Buffer);
+
+	if (RawResult) {
+		return NewValue(VALUE_TYPE_STRING, MakeString(RawResult, strlen(RawResult)));
+	}
+	else {
+		return NilValue();
+	}
+}
+
+Value* Eval_GetASCIICode(Value* Parameters) {
+	String* Target = GetListIndex(Parameters, VALUE_TYPE_STRING, 0)->StringValue;
+
+	int Result = 0;
+
+	if (Target->Length) {
+		Result = Target->Buffer[0];
+	}
+
+	return NewValue(VALUE_TYPE_INTEGER, Result);
+}
+Value* Eval_GetASCIICharacter(Value* Parameters) {
+	int64_t Target = GetListIndex(Parameters, VALUE_TYPE_INTEGER, 0)->IntegerValue;
+
+	char* Result = alloc(2);
+
+	*Result = (char)Target;
+
+	return NewValue(VALUE_TYPE_STRING, AdoptString(Result, 1));
+}
+
 Environment* SetupEnvironment() {
 	SymbolMap* Symbols = NewSymbolMap();
 
@@ -436,9 +490,11 @@ SetSymbolMapEntry(Symbols, #LispName, strlen(#LispName), FunctionValue);} while 
 	AddSymbolFunction(Sub, -);
 	AddSymbolFunction(Mul, *);
 	AddSymbolFunction(Div, /);
+	AddSymbolFunction(Mod, %);
 	AddSymbolFunction(Quit, quit);
 	AddSymbolFunction(ListFiles, ls);
 	AddSymbolFunction(Print, print);
+	AddSymbolFunction(PrintCharacter, print.char);
 	AddSymbolFunction(ChangeDirectory, cd);
 	AddSymbolFunction(GetCurrentDirectory, pwd);
 	AddSymbolFunction(ListMake, list.make);
@@ -452,13 +508,18 @@ SetSymbolMapEntry(Symbols, #LispName, strlen(#LispName), FunctionValue);} while 
 	AddSymbolFunction(StringSlice, string.sub);
 	AddSymbolFunction(StringSymbol, string->symbol);
 	AddSymbolFunction(Equals, =);
+	AddSymbolFunction(Less, <);
 	AddSymbolFunction(CreateProcess, process.make);
 	AddSymbolFunction(ReadProcessOutput, process.read_output);
 	AddSymbolFunction(GetReferenceCount, debug.grc);
+	AddSymbolFunction(ReadCharacter, read.char);
 	AddSymbolFunction(Eval, eval);
 	AddSymbolFunction(Parse, parse);
 	AddSymbolFunction(Slurp, slurp);
 	AddSymbolFunction(ToString, any->string);
+	AddSymbolFunction(OSEnvironmentGet, env.get);
+	AddSymbolFunction(GetASCIICode, ascii);
+	AddSymbolFunction(GetASCIICharacter, character);
 
 	Environment* Result = alloc(sizeof(Environment));
 

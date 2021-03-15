@@ -3,7 +3,7 @@
 #include <ctype.h>
 
 char IsSpecial(char Check) {
-	char* Special = "(){}[]'`^@~\" \t\n\r";
+	char* Special = "(){}[]'`^@\" \t\n\r";
 
 	for (int Index = 0; Index < strlen(Special); ++Index) {
 		if (Check == Special[Index]) {
@@ -121,7 +121,7 @@ Token* GetNextToken(Tokenizer* this) {
 					return AppendIntegerToken(this, TokenStartPosition, 2, TOKEN_TYPE_PUNCTUATION, PUNCTUATION_TILDE_AT);
 				}
 
-				return AppendIntegerToken(this, TokenStartPosition, 1, TOKEN_TYPE_PUNCTUATION, PUNCTUATION_TILDE);
+				//return AppendIntegerToken(this, TokenStartPosition, 1, TOKEN_TYPE_PUNCTUATION, PUNCTUATION_TILDE);
 			default: break;
 		}
 

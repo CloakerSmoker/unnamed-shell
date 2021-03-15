@@ -241,7 +241,7 @@ Value* RawEvaluateFunctionCall(unused Environment* this, Function* TargetFunctio
 		size_t BindingNamesCount = ExpectedParameterCount;
 
 		if (TargetFunction->IsVariadic) {
-			if (PassedParameterCount < ExpectedParameterCount - 1) {
+			if (PassedParameterCount < ExpectedParameterCount - 2) {
 				Error(Call, "Incorrect number of parameters passed to function");
 				longjmp(OnError, 0);
 			}
@@ -487,7 +487,7 @@ Value* Evaluate(Environment* this, Value* Target) {
 	EVAL_DEBUG_PRELUDE;
 #endif
 
-	Value* Result = Target;
+	Value* Result = NULL;
 
 	switch (Target->Type) {
 		case VALUE_TYPE_LIST: {
@@ -511,6 +511,22 @@ Value* Evaluate(Environment* this, Value* Target) {
 
 						break;
 					}
+					else if (!strncmp(Name->Buffer, "while*", Name->Length)) {
+						Value* Body = GetListIndex(Target, VALUE_TYPE_ANY, 0);
+
+						Value* WhileValue = ConvertToBooleanValue(Evaluate(this, AddReferenceToValue(Body)));
+
+						while (WhileValue->BoolValue) {
+							ReleaseReferenceToValue(WhileValue);
+							WhileValue = ConvertToBooleanValue(Evaluate(this, AddReferenceToValue(Body)));
+						}
+
+						ReleaseReferenceToValue(WhileValue);
+
+						Result = NilValue();
+
+						break;
+					}
 					else if (!strncmp(Name->Buffer, "def!", Name->Length)) {
 						Value* Key = GetListIndex(Target, VALUE_TYPE_IDENTIFIER, 0);
 						Value* Value = GetListIndex(Target, VALUE_TYPE_ANY, 1);
@@ -524,6 +540,8 @@ Value* Evaluate(Environment* this, Value* Target) {
 						}
 
 						SetEnvironmentEntry(this, Key->IdentifierValue, Result);
+
+						Result = NilValue();
 
 						break;
 					}
@@ -677,8 +695,15 @@ Value* Evaluate(Environment* this, Value* Target) {
 						break;
 					}
 					else if (!strncmp(Name->Buffer, "load!", Name->Length)) {
-						Value* FileNameValue = GetListIndex(Target, VALUE_TYPE_STRING, 0);
-						String* FileName = FileNameValue->StringValue;
+						Value* FileNameValue = GetListIndex(Target, VALUE_TYPE_ANY, 0);
+
+						Value* ActualFileNameValue = Evaluate(this, AddReferenceToValue(FileNameValue));
+
+						if (ActualFileNameValue->Type != VALUE_TYPE_STRING) {
+							RaiseTypeError(ActualFileNameValue, VALUE_TYPE_STRING);
+						}
+
+						String* FileName = ActualFileNameValue->StringValue;
 
 						FILE* FileDescriptor = fopen(FileName->Buffer, "r");
 
@@ -687,7 +712,7 @@ Value* Evaluate(Environment* this, Value* Target) {
 
 							snprintf(MessageBuffer, 100, "Could not open file '%s'", FileName->Buffer);
 
-							Error(FileNameValue, MessageBuffer);
+							Error(ActualFileNameValue, MessageBuffer);
 							longjmp(OnError, 0);
 						}
 
@@ -705,7 +730,10 @@ Value* Evaluate(Environment* this, Value* Target) {
 
 						Value* FileTree = ReadForm(FileTokenizer);
 
-						Result = Evaluate(this, FileTree);
+						Result = Evaluate(this, AddReferenceToValue(FileTree));
+
+						ReleaseReferenceToValue(FileTree);
+						ReleaseReferenceToValue(ActualFileNameValue);
 
 						break;
 					}

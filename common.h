@@ -10,12 +10,12 @@
 #include <sys/stat.h>
 #include "io.h"
 
-#define alloc(Size) calloc(Size, 1)
+#define alloc(Size) calloc((Size) + 0x30, 1)
 
 
 extern jmp_buf OnError;
 
-#define unused __unused
+#define unused __attribute__((unused))
 
 #define DEBUG_EVAL 0
 
@@ -61,6 +61,8 @@ typedef struct {
 #define CYAN 6
 #define WHITE 7
 #define BRIGHT 8
+
+char TranslateColor(char Color);
 
 void ContextAlert(ErrorContext* Context, char* Message, char Color);
 void ContextError(ErrorContext* Context, char* Message);
