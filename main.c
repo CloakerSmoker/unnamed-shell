@@ -11,6 +11,8 @@ char* ReadLine();
 
 #define ReadCharacter() (char)getchar()
 
+Value* CurrentlyExpanding = NULL;
+
 int main(unused int argc, unused char** argv) {
 	setvbuf(stdout, NULL, _IONBF, 0);
 	SetupTermios(1);
@@ -32,6 +34,13 @@ int main(unused int argc, unused char** argv) {
 	Evaluate(Env, AutoLoadTree);
 
 	setjmp(OnError);
+
+	if (CurrentlyExpanding) {
+		printf("While expanding: ");
+		Value_Print(CurrentlyExpanding);
+		printf("\n");
+		CurrentlyExpanding = NULL;
+	}
 
 	while (1) {
 		printf(">");

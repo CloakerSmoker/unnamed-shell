@@ -10,7 +10,7 @@
 #include <sys/stat.h>
 #include "io.h"
 
-#define alloc(Size) calloc((Size) + 0x30, 1)
+#define alloc(Size) calloc((Size), 1)
 
 
 extern jmp_buf OnError;

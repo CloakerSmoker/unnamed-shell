@@ -321,7 +321,11 @@ Value* EvaluateAST(Environment* this, Value* Target) {
 				Result = AddReferenceToValue(Symbol->Value);
 			}
 			else {
-				Error(Target, "Undefined symbol");
+				char MessageBuffer[100] = {0};
+
+				snprintf(MessageBuffer, 100, "Undefined symbol '%.*s'", (int)IdentifierText->Length, IdentifierText->Buffer);
+
+				Error(Target, MessageBuffer);
 				longjmp(OnError, 0);
 			}
 
@@ -465,16 +469,21 @@ char IsMacroCall(Environment* this, Value* Target, Function** OutFunction) {
 
 	return 0;
 }
+
+extern Value* CurrentlyExpanding;
+
 Value* ExpandMacro(Environment* this, Value* OriginalTarget) {
 	Value* Target = OriginalTarget;
 	Function* NextMacro = NULL;
 
 	while (IsMacroCall(this, Target, &NextMacro)) {
+		CurrentlyExpanding = Target;
 		Target = RawEvaluateFunctionCall(this, NextMacro, Target);
 
 		CloneContext(Target, OriginalTarget);
 	}
 
+	CurrentlyExpanding = NULL;
 	return Target;
 }
 

@@ -95,7 +95,7 @@ Token* GetNextToken(Tokenizer* this) {
 			int CurrentLine = this->LineNumber;
 
 			while (this->LineNumber == CurrentLine && !IsTokenizerAtEnd(this)) {
-				GetNextToken(this);
+				GetNextCharacter(this);
 			}
 
 			continue;
