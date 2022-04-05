@@ -2,6 +2,7 @@
 #define LISHP_BUILTINS_H
 
 #include <stdlib.h>
+#include <time.h>
 #include "common.h"
 #include "eval.h"
 

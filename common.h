@@ -12,6 +12,7 @@
 
 #define alloc(Size) calloc((Size), 1)
 
+extern char** Arguments;
 
 extern jmp_buf OnError;
 
@@ -44,9 +45,10 @@ typedef struct {
 	StringAllocationMethod AllocationMethod;
 } String;
 
-typedef struct {
+typedef struct TagErrorContext {
 	char* Source;
 	char* SourceFilePath;
+	struct TagErrorContext* ExpandedFrom;
 	int Position;
 	int Length;
 	int LineNumber;

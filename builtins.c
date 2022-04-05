@@ -507,6 +507,25 @@ EVAL_FUNCTION(GetASCIICharacter) {
 	return NewValue(VALUE_TYPE_STRING, AdoptString(Result, 1));
 }
 
+EVAL_FUNCTION(Reload) {
+	execv(Arguments[0], Arguments);
+}
+EVAL_FUNCTION(Time) {
+	struct timespec Now;
+
+	clock_gettime(CLOCK_REALTIME, &Now);
+
+	int64_t Micros = Now.tv_sec * 1000000;
+
+	Micros += Now.tv_nsec/1000;
+
+	if (Now.tv_nsec % 1000 >= 500) {
+		++Micros;
+	}
+
+	return NewValue(VALUE_TYPE_INTEGER, Micros);
+}
+
 Environment* SetupEnvironment() {
 	SymbolMap* Symbols = NewSymbolMap();
 
@@ -554,6 +573,8 @@ SetSymbolMapEntry(Symbols, #LispName, strlen(#LispName), FunctionValue);} while 
 	AddSymbolFunction(OSEnvironmentGet, env.get);
 	AddSymbolFunction(GetASCIICode, ascii);
 	AddSymbolFunction(GetASCIICharacter, character);
+	AddSymbolFunction(Reload, reload);
+	AddSymbolFunction(Time, time);
 
 	Environment* Result = alloc(sizeof(Environment));
 

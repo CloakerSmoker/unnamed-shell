@@ -109,6 +109,15 @@ void ContextAlert(ErrorContext* Context, char* Message, char Color) {
 	SetTerminalColors(WHITE | BRIGHT, BLACK);
 
 	printf("\n");
+
+	if (Context->ExpandedFrom != NULL) {
+		SetTerminalColors(Color, BLACK);
+		printf("Which was expanded from:");
+		SetTerminalColors(WHITE | BRIGHT, BLACK);
+		printf("\n");
+
+		ContextAlert(Context->ExpandedFrom, NULL, Color);
+	}
 }
 
 void ContextError(ErrorContext* Context, char* Message) {
@@ -116,7 +125,15 @@ void ContextError(ErrorContext* Context, char* Message) {
 }
 
 ErrorContext* RawContextClone(ErrorContext* To, ErrorContext* From) {
+	ErrorContext* ExpandedFrom = From->ExpandedFrom;
+
+	if (To->ExpandedFrom != NULL && ExpandedFrom == NULL) {
+		ExpandedFrom = To->ExpandedFrom;
+	}
+
 	memcpy(To, From, sizeof(ErrorContext));
+
+	To->ExpandedFrom = ExpandedFrom;
 
 	return To;
 }

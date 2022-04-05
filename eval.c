@@ -259,6 +259,17 @@ Value* RawEvaluateFunctionCall(unused Environment* this, Function* TargetFunctio
 			Value* BindingName = RawGetListIndex(BindingNames, VALUE_TYPE_IDENTIFIER, Index);
 			Value* BindingValue = RawGetListIndex(Call, VALUE_TYPE_ANY, Index + 1);
 
+			if (TargetFunction->IsMacro) {
+				// THIS IS A MEMORY LEAK
+				// For some reason, something will modify BindingValue.Context which destroys
+				//  the context of the value bound to the name
+
+				ErrorContext* MemoryLeak = alloc(sizeof(ErrorContext));
+				memcpy(MemoryLeak, &BindingValue->Context, sizeof(ErrorContext));
+
+				BindingValue->Context.ExpandedFrom = MemoryLeak;
+			}
+
 			SetEnvironmentEntry(Closure, BindingName->IdentifierValue, BindingValue);
 		}
 
@@ -478,9 +489,9 @@ Value* ExpandMacro(Environment* this, Value* OriginalTarget) {
 
 	while (IsMacroCall(this, Target, &NextMacro)) {
 		CurrentlyExpanding = Target;
-		Target = RawEvaluateFunctionCall(this, NextMacro, Target);
 
-		CloneContext(Target, OriginalTarget);
+		Target->Context.ExpandedFrom = &OriginalTarget->Context;
+		Target = RawEvaluateFunctionCall(this, NextMacro, Target);
 	}
 
 	CurrentlyExpanding = NULL;

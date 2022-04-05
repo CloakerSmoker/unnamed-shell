@@ -1,0 +1,826 @@
+(do
+
+(def! Start (time))
+
+(def! list.filter (fn* (List Filter)
+	(let*
+		(
+			Result (list.make)
+		)
+		(do
+			(list.map
+				List
+				(fn* (Entry)
+					(do
+						(if (Filter Entry)
+							(def! Result (list.push Result Entry))
+						)
+					)
+				)
+			)
+			Result
+		)
+	)
+))
+
+(def! or (fn* (Left Right)
+	(if Left
+		true
+		(if Right
+			true
+			false
+		)
+	)
+))
+(def! and (fn* (Left Right)
+	(if Left
+		(if Right true false)
+		false
+	)
+))
+
+(def! bls (fn* ()
+	(let*
+		(
+			Count 0
+			Entries (list.map
+				(ls)
+				(fn* (Entry)
+					(if (not (or (# Entry = "./") (# Entry = "../")))
+						(do
+							(print Entry)
+							(print "\n")
+							(def! Count (# Count + 1))
+						)
+					)
+				)
+			)
+		)
+		Count
+	)
+))
+
+(def! list.drop_first (fn* (Target)
+	(let*
+		(
+			Index 0
+			LastIndex (# (list.length Target) - 1)
+		)
+		(list.filter
+			Target
+			(fn* (Entry)
+				(let*
+					(Result (not (# Index = 0)))
+					(do
+						(def! Index (# Index + 1))
+						Result
+					)
+				)
+			)
+		)
+	)
+))
+
+(def! join (fn* (Separator ... Parts)
+	(let*
+		(
+			Result ""
+		)
+		(do
+			(list.map Parts (fn* (Part)
+				(def! Result (string.concat Result (any->string Part) Separator))
+			))
+			(string.sub Result 0 (# (string.length Result) - (string.length Separator)))
+		)
+	)
+))
+
+(def! list.join (fn* (Separator Parts)
+	(if (= (list.length Parts) 0)
+		""
+		(let*
+			( Result "" )
+			(do
+				(list.map Parts (fn* (Part)
+					(def! Result (string.concat Result (any->string Part) Separator))
+				))
+				(string.sub Result 0 (# (string.length Result) - (string.length Separator)))
+			)
+		)
+	)
+))
+(def! list.make-fill (fn* (Length FillValue)
+	(let*
+		(Result (list.make))
+		(do
+			(while* (do
+				(def! Continue (not (# (list.length Result) = Length)))
+				(if Continue (def! Result (list.push Result FillValue)))
+				Continue
+			))
+			Result
+		)
+	)
+))
+(def! list.contains (fn* (List Value)
+	(let*
+		(Result false)
+		(do
+			(list.map List (fn* (Entry)
+				(if (= Entry Value) (def! Result true))
+			))
+			Result
+		)
+	)
+))
+
+(def! run (fn* (CommandLine)
+	(let*
+		(Process (process.make CommandLine))
+		(process.read_output Process)
+	)
+))
+
+(def! print.chars (fn* (... Characters)
+	(list.map Characters (fn* (Character)
+		(print.char Character)
+	))
+))
+(def! print.ansi-escape (fn* (Escape)
+	(do
+		(print.char 27)
+		(print "[")
+		(print Escape)
+	)
+))
+
+(def! string.reverse (fn* (String)
+	(let*
+		(
+			Result ""
+			SplitString (string.split String)
+			Index (# (list.length SplitString) - 1)
+		)
+		(do
+			(list.map SplitString (fn* (Character)
+				(do
+					(def! Result (string.concat Result (list.index SplitString Index)))
+					(def! Index (# Index - 1))
+				)
+			))
+
+			Result
+		)
+	)
+))
+
+(def! int->character (fn* (Number)
+	(if (# Number < 10)
+		(character (# (ascii "0") + Number))
+		(character (# (ascii "A") + (# Number - 10)))
+	)
+))
+
+(def! int->string (fn* (Number Base)
+	(let*
+		(Result "")
+		(do
+			(while* (do
+				(let*
+					(Remainder (# Number % Base))
+					(do
+						(def! Result (string.concat Result (int->character Remainder)))
+						(def! Number (# Number / Base))
+					)
+				)
+				(not (# Number = 0))
+			))
+			(string.reverse Result)
+		)
+	)
+))
+
+(def! hex (fn* (Number)
+	(string.concat "0x" (int->string Number 16))
+))
+(def! binary (fn* (Number)
+	(string.concat "0b" (int->string Number 2))
+))
+(def! print.colored (fn* (Text ... Colors)
+	(do
+		(list.map Colors (fn* (Color)
+			(print.ansi-escape (. (int->string Color 10) "m"))
+		))
+		(print Text)
+		(print.ansi-escape "0m")
+	)
+))
+
+(def! Black 30)
+(def! Red 31)
+(def! Green 32)
+(def! Yellow 33)
+(def! Blue 34)
+(def! Magenta 35)
+(def! Cyan 36)
+(def! White 37)
+(def! color.bright (fn* (Color) (# Color + 60)))
+(def! color.fore (fn* (Color) Color))
+(def! color.back (fn* (Color) (# Color + 10)))
+
+(def! string.left-pad (fn* (String Character Length)
+	(let*
+		(Result String)
+		(do
+			(if (# (string.length Result) < Length)
+				(while* (do
+					(def! Result (string.concat Character Result))
+					(# (string.length Result) < Length)
+				))
+			)
+			Result
+		)
+	)
+))
+(def! string.right-pad (fn* (String Character Length)
+	(let*
+		(Result String)
+		(do
+			(if (# (string.length Result) < Length)
+				(while* (do
+					(def! Result (string.concat Result Character))
+					(# (string.length Result) < Length)
+				))
+			)
+			Result
+		)
+	)
+))
+
+(def! . string.concat)
+
+(def! string.separate (fn* (String Separator)
+	(let*
+		(
+			Result (list.make)
+			SplitString (string.split String)
+			SplitSeparator (string.split Separator)
+			SeparatorLength (string.length Separator)
+			CurrentSlice ""
+			RunLength 0
+			Index 0
+		)
+		(do
+			(list.map SplitString (fn* (Character)
+				(do
+					(if (# (list.index SplitString Index) = (list.index SplitSeparator RunLength))
+						(do
+							(def! RunLength (# RunLength + 1))
+							(if (# RunLength = SeparatorLength)
+								(do
+									(if (not (# (string.length CurrentSlice) = 0))
+										(def! Result (list.push Result CurrentSlice))
+									)
+									(def! CurrentSlice "")
+									(def! RunLength 0)
+								)
+							)
+						)
+						(do
+							(def! RunLength 0)
+							(def! CurrentSlice (. CurrentSlice Character))
+						)
+					)
+					(def! Index (# Index + 1))
+				)
+			))
+			(if (not (# (string.length CurrentSlice) = 0))
+				(def! Result (list.push Result CurrentSlice))
+			)
+			Result
+		)
+	)
+))
+
+(def! int.neg (fn* (Value)
+	(# 0 - Value)
+))
+(def! int.abs (fn* (Value)
+	(if (# Value < 0)
+		(int.neg Value)
+		Value
+	)
+))
+
+(def cursor.vertical (fn* (Offset)
+	(if (# Offset < 0)
+		(print.ansi-escape (. (int->string (int.abs Offset) 10) "A"))
+		(print.ansi-escape (. (int->string Offset 10) "B"))
+	)
+))
+(def cursor.horizontal (fn* (Offset)
+	(if (# Offset < 0)
+		(print.ansi-escape (. (int->string (int.abs Offset) 10) "D"))
+		(print.ansi-escape (. (int->string Offset 10) "C"))
+	)
+))
+
+(def! cursor.to-display-end 0)
+(def! cursor.to-display-start 1)
+(def! cursor.erase-in-display (fn* (Direction)
+	(print.ansi-escape (. (int->string Direction 10) "J"))
+))
+
+(def! cursor.to-line-end 0)
+(def! cursor.to-line-start 1)
+(def! cursor.erase-in-line (fn* (Direction)
+	(print.ansi-escape (. (int->string Direction 10) "K"))
+))
+
+(def! scroll (fn* (Offset)
+	(if (# Offset < 0)
+		(print.ansi-escape (. (int->string (int.abs Offset) 10) "T"))
+		(print.ansi-escape (. (int->string Offset 10) "S"))
+	)
+))
+(def! scroll.up (fn* (Offset)
+	(print.ansi-escape (. (int->string Offset 10) "T"))
+))
+(def! scroll.down (fn* (Offset)
+	(print.ansi-escape (. (int->string Offset 10) "S"))
+))
+
+(def! edit.get-line-text (fn* (Lines Index)
+	(list.index Lines Index)
+))
+(def! edit.set-line-text (fn* (Lines Index Text)
+	(list.replace-index Lines Index Text)
+))
+(def! edit.append-to-line (fn* (Lines Index Text)
+	(edit.set-line-text Lines Index (. (edit.get-line-text Lines Index) Text))
+))
+(def! edit.delete-in-line (fn* (Lines Index DeleteAt)
+	(let*
+		(
+			Text (edit.get-line-text Lines Index)
+			Left (string.sub Text 0 DeleteAt)
+			Right (string.sub Text (# DeleteAt + 1))
+		)
+		(edit.set-line-text Lines Index (. Left Right))
+	)
+))
+(def! edit.insert-in-line (fn* (Lines Index InsertAt Character)
+	(let*
+		(
+			Text (edit.get-line-text Lines Index)
+			Left (string.sub Text 0 InsertAt)
+			Right (string.sub Text InsertAt)
+		)
+		(edit.set-line-text Lines Index (. Left Character Right))
+	)
+))
+(def! edit.get-line-length (fn* (Lines Index)
+	(string.length (edit.get-line-text Lines Index))
+))
+(def! edit.print-line-frame-raw (fn* (Text)
+	(print.colored (. (string.left-pad Text " " 3) " |") Blue)
+))
+(def! edit.print-line-frame (fn* (LineNumber)
+	(edit.print-line-frame-raw (int->string LineNumber 10))
+))
+(def! edit.cursor-to-frame (fn* ()
+	(do
+		(cursor.horizontal (int.neg 1000))
+		(cursor.horizontal 5)
+	)
+))
+
+(macro! edit.handle-escapes (fn* ()
+	'(do
+		(def! Next (ascii (read.char)))
+
+		(def! edit.up-arrow 65)
+		(def! edit.down-arrow 66)
+		(def! edit.right-arrow 67)
+		(def! edit.left-arrow 68)
+		(def! edit.end 70)
+		(def! edit.home 72)
+
+		(if (# Next = 91) (do
+			(def! Next (ascii (read.char)))
+
+			(if (# Next = edit.up-arrow) (do
+				(if (# Line > 0) (do
+					(def! Line (# Line - 1))
+					(cursor.vertical (int.neg 1))
+
+					(def! Column (edit.get-line-length Lines Line))
+					(edit.cursor-to-frame)
+					(cursor.horizontal Column)
+				))
+			))
+			(if (# Next = edit.down-arrow) (do
+				(if (# LineCount > (# Line + 1)) (do
+					(def! Line (# Line + 1))
+					(cursor.vertical 1)
+
+					(def! Column (edit.get-line-length Lines Line))
+					(edit.cursor-to-frame)
+					(cursor.horizontal Column)
+				))
+			))
+			(if (# Next = edit.left-arrow) (do
+				; Left arrow pressed, only actually move the cursor if it is not already up against
+				;  the line frame
+
+				(if (# Column > 0) (do
+					(def! Column (# Column - 1))
+					(cursor.horizontal (int.neg 1))
+				))
+			))
+			(if (# Next = edit.right-arrow) (do
+				; Right arrow pressed, only actually move the cursor if it is below the length of the
+				;  line, locking it between the first character, and after the last character
+
+				(if (# Column < (edit.get-line-length Lines Line)) (do
+					(def! Column (# Column + 1))
+					(cursor.horizontal 1)
+				))
+			))
+			(if (# Next = edit.home) (do
+				; Home, move the cursor to column 0
+
+				(if (# Column > 0) (cursor.horizontal (int.neg Column)))
+				(def! Column 0)
+			))
+			(if (# Next = edit.end) (do
+				; End, move the cursor just past the final character of the line
+				; But only move the actual cursor if it isn't already past the final character
+
+				(def! LineLength (edit.get-line-length Lines Line))
+				(def! CursorDistanceToEnd (# LineLength - Column))
+				(if (# CursorDistanceToEnd > 0) (cursor.horizontal CursorDistanceToEnd))
+				(def! Column LineLength)
+			))
+		))
+	)
+))
+
+(def! edit.special (list.make 24 13 127))
+
+(macro! edit.handle-special (fn* ()
+	'(do
+		(if (# Next = 24)
+			; Control-X, tell the main edit loop to stop
+
+			(def! Exit 1)
+		)
+		(if (# Next = 13) (do
+			; Enter, jump down a line (if there's another line below)
+
+			(cursor.vertical 1)
+			(def! Line (# Line + 1))
+
+			(if (# LineCount < (# Line + 1)) (do
+				; There's no next line, we need to add one
+
+				; First, draw the new line's frame
+				(cursor.horizontal (int.neg 1000))
+				(cursor.erase-in-line cursor.to-line-end)
+				(edit.print-line-frame (# Line + 1))
+
+				; And the new trailing frame
+				(print "\n")
+				;(cursor.vertical 1)
+				(cursor.horizontal (int.neg 1000))
+				(edit.print-line-frame-raw "..")
+				(cursor.vertical (int.neg 1))
+
+				; Then actually give the line an entry in the line list, and update the line count
+				(def! Lines (list.push Lines ""))
+				(def! LineCount (# LineCount + 1))
+			))
+
+			(def! Column 0)
+			(edit.cursor-to-frame)
+		))
+		(if (# Next = 127)
+			; Backspace, do some work to figure out how to handle it
+
+			(if (and (# Column > 0) (# Column < (edit.get-line-length Lines Line))) (do
+				; Backspace in the middle of a line, delete the character in the line, then
+				;  reprint the rest of line (which is shifted left because of the now missing character)
+
+				(def! Column (# Column - 1))
+				(def! Lines
+					(edit.delete-in-line Lines Line Column)
+				)
+
+				(cursor.horizontal (int.neg 1))
+				(cursor.erase-in-line cursor.to-line-end)
+				(print
+					(string.sub (edit.get-line-text Lines Line) Column)
+				)
+				(cursor.horizontal (# Column - (edit.get-line-length Lines Line)))
+			)
+			(if (and (# Column > 0) (# Column = (edit.get-line-length Lines Line))) (do
+				; Backspace at the end of a line, chop the last character off of the line text
+				;  and update it, then move the cursor left by one and erase to the end of the line.
+
+				(def! LineText (edit.get-line-text Lines Line))
+				(def! Lines
+					(edit.set-line-text Lines Line
+						(string.sub LineText 0 (# (string.length LineText) - 1))
+					)
+				)
+				(cursor.horizontal (int.neg 1))
+				(cursor.erase-in-line cursor.to-line-end)
+				(def! Column (# Column - 1))
+			)))
+		)
+	)
+))
+(macro! edit.handle-normal (fn* ()
+	'(do
+		(if (# Column = (edit.get-line-length Lines Line))
+			(do
+				; Normal character, at end of line. Just print it and append it to the current
+				;  line, nothing special.
+
+				(print.char Next)
+				(def! Lines (edit.append-to-line Lines Line (character Next)))
+			)
+			(do
+				; Normal character, in the middle of a line. Insert it into the current column
+				;  of the current line, then erase everything after the cursor.
+				; Finally, reprint the rest of the line (which was shifted by inserting the character)
+				;  and move the cursor back to the correct place
+
+				(def! Lines (edit.insert-in-line Lines Line Column (character Next)))
+				(cursor.erase-in-line cursor.to-line-end)
+				(print
+					(string.sub (edit.get-line-text Lines Line) Column)
+				)
+				(cursor.horizontal (# (# Column + 1) - (edit.get-line-length Lines Line)))
+			)
+		)
+
+		(def! Column (# Column + 1))
+	)
+))
+
+(def! edit (fn* (... MaybeInitialText)
+	(let*
+		(
+			InitialText (if (= (list.length MaybeInitialText) 1) (list.index MaybeInitialText 0) "")
+			Lines (string.separate InitialText "\n")
+			LineCount (list.length Lines)
+			LineCount (if (not (# LineCount = 0)) LineCount 1)
+			Lines (if (list.length Lines) Lines (list.make-fill LineCount ""))
+			LineIndex 0
+		)
+		(do
+			(while* (do
+				(edit.print-line-frame (# LineIndex + 1))
+				(let*
+					(LineText (list.index Lines LineIndex))
+					(do
+						(if LineText (print LineText))
+						(print "\n")
+					)
+				)
+				(def! LineIndex (# LineIndex + 1))
+				(# LineIndex < LineCount)
+			))
+			(edit.print-line-frame-raw "..")
+			(cursor.vertical (int.neg LineCount))
+			(edit.cursor-to-frame)
+			(let*
+				(
+					Line 0
+					Column 0
+				)
+				(do
+					(while* (let*
+						(
+							Next (ascii (read.char))
+							Exit 0
+						)
+						(do
+							(if (# Next = 27)
+								(edit.handle-escapes)
+								(do
+									(edit.handle-special)
+
+									(if (not (list.contains edit.special Next))
+										(edit.handle-normal)
+									)
+								)
+							)
+
+							(not Exit)
+						)
+					))
+					(cursor.horizontal (int.neg 1000))
+					(if Line (cursor.vertical (int.neg Line)))
+					(cursor.erase-in-display cursor.to-display-end)
+					(list.join "\n" (list.filter Lines (fn* (SingleLine)
+						(# (string.length SingleLine) > 0)
+					)))
+				)
+			)
+		)
+	)
+))
+
+(def! debug.echo-stdin (fn* () (while* (do (print (hex (ascii (read.char)))) (print " ") 1))))
+
+(macro! prompt.handle-escapes (fn* ()
+	'(do
+		(def! Next (ascii (read.char)))
+
+		(def! edit.up-arrow 65)
+		(def! edit.down-arrow 66)
+		(def! edit.right-arrow 67)
+		(def! edit.left-arrow 68)
+		(def! edit.end 70)
+		(def! edit.home 72)
+
+		(if (# Next = 91) (do
+			(def! Next (ascii (read.char)))
+
+			(if (# Next = edit.up-arrow) (do
+
+			))
+			(if (# Next = edit.down-arrow) (do
+
+			))
+			(if (# Next = edit.left-arrow) (do
+				; Left arrow pressed, only actually move the cursor if it is not already up against
+				;  the line frame
+
+				(if (# Column > 0) (do
+					(def! Column (# Column - 1))
+					(cursor.horizontal (int.neg 1))
+				))
+			))
+			(if (# Next = edit.right-arrow) (do
+				; Right arrow pressed, only actually move the cursor if it is below the length of the
+				;  line, locking it between the first character, and after the last character
+
+				(if (# Column < (edit.get-line-length Lines Line)) (do
+					(def! Column (# Column + 1))
+					(cursor.horizontal 1)
+				))
+			))
+			(if (# Next = edit.home) (do
+				; Home, move the cursor to column 0
+
+				(if (# Column > 0) (cursor.horizontal (int.neg Column)))
+				(def! Column 0)
+			))
+			(if (# Next = edit.end) (do
+				; End, move the cursor just past the final character of the line
+				; But only move the actual cursor if it isn't already past the final character
+
+				(def! LineLength (edit.get-line-length Lines Line))
+				(def! CursorDistanceToEnd (# LineLength - Column))
+				(if (# CursorDistanceToEnd > 0) (cursor.horizontal CursorDistanceToEnd))
+				(def! Column LineLength)
+			))
+		))
+	)
+))
+(macro! prompt.handle-special (fn* ()
+	'(do
+		(if (# Next = 13) (do
+			(def! Exit 1)
+		))
+		(if (# Next = 127)
+			; Backspace, do some work to figure out how to handle it
+
+			(if (and (# Column > 0) (# Column < (edit.get-line-length Lines Line))) (do
+				; Backspace in the middle of a line, delete the character in the line, then
+				;  reprint the rest of line (which is shifted left because of the now missing character)
+
+				(def! Column (# Column - 1))
+				(def! Lines
+					(edit.delete-in-line Lines Line Column)
+				)
+
+				(cursor.horizontal (int.neg 1))
+				(cursor.erase-in-line cursor.to-line-end)
+				(print
+					(string.sub (edit.get-line-text Lines Line) Column)
+				)
+				(cursor.horizontal (# Column - (edit.get-line-length Lines Line)))
+			)
+			(if (and (# Column > 0) (# Column = (edit.get-line-length Lines Line))) (do
+				; Backspace at the end of a line, chop the last character off of the line text
+				;  and update it, then move the cursor left by one and erase to the end of the line.
+
+				(def! LineText (edit.get-line-text Lines Line))
+				(def! Lines
+					(edit.set-line-text Lines Line
+						(string.sub LineText 0 (# (string.length LineText) - 1))
+					)
+				)
+				(cursor.horizontal (int.neg 1))
+				(cursor.erase-in-line cursor.to-line-end)
+				(def! Column (# Column - 1))
+			)))
+		)
+	)
+))
+
+(macro! prompt.handle-normal (fn* ()
+	'(do
+		(if (# Column = (edit.get-line-length Lines Line))
+			(do
+				; Normal character, at end of line. Just print it and append it to the current
+				;  line, nothing special.
+
+				(print.char Next)
+				(def! Lines (edit.append-to-line Lines Line (character Next)))
+			)
+			(do
+				; Normal character, in the middle of a line. Insert it into the current column
+				;  of the current line, then erase everything after the cursor.
+				; Finally, reprint the rest of the line (which was shifted by inserting the character)
+				;  and move the cursor back to the correct place
+
+				(def! Lines (edit.insert-in-line Lines Line Column (character Next)))
+				(cursor.erase-in-line cursor.to-line-end)
+				(print
+					(string.sub (edit.get-line-text Lines Line) Column)
+				)
+				(cursor.horizontal (# (# Column + 1) - (edit.get-line-length Lines Line)))
+			)
+		)
+
+		(def! Column (# Column + 1))
+	)
+))
+
+(def! prompt.read-line (fn* ()
+	(let*
+		(
+			Lines (list.make "")
+			Depth 0
+		)
+		(do
+			(let*
+				(
+					Column 0
+					Line 0
+				)
+				(do
+					(while* (let*
+						(
+							Next (ascii (read.char))
+							Exit 0
+						)
+						(do
+							(if (# Next = 27)
+								(prompt.handle-escapes)
+								(do
+									(prompt.handle-special)
+
+									(if (not (list.contains edit.special Next))
+										(prompt.handle-normal)
+									)
+								)
+							)
+
+							(not Exit)
+						)
+					))
+					(edit.get-line-text Lines 0)
+				)
+			)
+		)
+	)
+))
+
+(def! prompt (fn* ()
+	(while* (do
+		(print ">")
+		(let* (Input (prompt.read-line)) (do
+			(print "\n = ")
+			(print (eval (parse Input)))
+			(print "\n")
+		))
+
+		true
+	))
+))
+
+(def! End (time))
+
+(def! Greeting (. "Welcome.\nVersion 0\nTook " (int->string (# End - Start) 10) " microseconds to load\n"))
+
+(print.colored Greeting (color.fore Blue))
+
+"Loaded!"
+
+)

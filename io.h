@@ -34,6 +34,6 @@ typedef struct TagChildProcess {
 
 ChildProcess* NewChildProcess(char* CommandPath, char** CommandArguments);
 char* ReadFromChildProcessStream(ChildProcess* Child, int StreamNumber, size_t* OutSize);
-__unused void WriteToChildProcessStream(ChildProcess* Child, int StreamNumber, char* Data, size_t Size);
+void WriteToChildProcessStream(ChildProcess* Child, int StreamNumber, char* Data, size_t Size);
 
 #endif //LISHP_IO_H

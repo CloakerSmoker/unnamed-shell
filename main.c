@@ -13,33 +13,74 @@ char* ReadLine();
 
 Value* CurrentlyExpanding = NULL;
 
-int main(unused int argc, unused char** argv) {
+char** Arguments;
+
+int main(int argc, char** argv) {
+	Arguments = argv;
+
 	setvbuf(stdout, NULL, _IONBF, 0);
 	SetupTermios(1);
 
 	Environment* Env = SetupEnvironment();
 
+	if (setjmp(OnError)) {
+		if (CurrentlyExpanding) {
+			printf("While expanding: ");
+			Value_Print(CurrentlyExpanding);
+			printf("\n");
+			CurrentlyExpanding = NULL;
+		}
+
+		exit(-1);
+	}
+
 	char* AutoLoad = "(do " \
-					 " (def! not (fn* (Value) (if Value false true)))" \
-					 " (def! or (fn* (Left Right) (if Left true (if Right true false))))" \
-					 " (def! bool->int (fn* (Bool) (if Bool 1 0)))" \
-					 " (def! any->bool (fn* (Value) (if Value true false)))" \
-					 " (macro! # (fn* (... BinaryParts) `(@(list.index BinaryParts 1) @(list.index BinaryParts 0) @(list.index BinaryParts 2))))" \
-					 " (load! (string.concat (env.get \"HOME\") \"/config.lishp\"))" \
-					 ")"; //
+                     " (def! not (fn* (Value) (if Value false true)))" \
+                     " (def! or (fn* (Left Right) (if Left true (if Right true false))))" \
+                     " (def! bool->int (fn* (Bool) (if Bool 1 0)))" \
+                     " (def! any->bool (fn* (Value) (if Value true false)))" \
+                     " (macro! # (fn* (... BinaryParts) `(@(list.index BinaryParts 1) @(list.index BinaryParts 0) @(list.index BinaryParts 2))))" \
+                     ")"; //
+
 	Tokenizer* AutoLoadTokenizer = NewTokenizer("AutoLoad", AutoLoad, strlen(AutoLoad));
 
 	Value* AutoLoadTree = ReadForm(AutoLoadTokenizer);
 
 	Evaluate(Env, AutoLoadTree);
 
-	setjmp(OnError);
+	if (argc >= 2) {
+		FILE* Script = fopen(argv[1], "r");
 
-	if (CurrentlyExpanding) {
-		printf("While expanding: ");
-		Value_Print(CurrentlyExpanding);
-		printf("\n");
-		CurrentlyExpanding = NULL;
+		if (Script == NULL) {
+			exit(-1);
+		}
+
+		fseek(Script, 0, SEEK_END);
+		int Size = ftell(Script);
+		fseek(Script, 0, SEEK_SET);
+
+		char* ScriptText = malloc(Size + 1);
+		fread(ScriptText, Size, 1, Script);
+		fclose(Script);
+
+		Tokenizer* ScriptTokenizer = NewTokenizer(argv[1], ScriptText, Size);
+		Value* ScriptTree = ReadForm(ScriptTokenizer);
+		Value* Result = Evaluate(Env, ScriptTree);
+
+		if (Result->Type == VALUE_TYPE_INTEGER) {
+			exit(Result->IntegerValue);
+		}
+
+		exit(0);
+	}
+
+	struct stat ConfigStatDummy;
+
+	if (!stat("~/config.lishp", &ConfigStatDummy)) {
+		char* LoadConfig = "(load! (string.concat (env.get \"HOME\") \"/config.lishp\"))";
+		Tokenizer* ConfigTokenizer = NewTokenizer("~/config.lishp", LoadConfig, strlen(LoadConfig));
+		Value* ConfigTree = ReadForm(ConfigTokenizer);
+		Evaluate(Env, ConfigTree);
 	}
 
 	while (1) {
